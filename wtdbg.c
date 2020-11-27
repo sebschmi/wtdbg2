@@ -1129,7 +1129,15 @@ int main(int argc, char **argv){
 		cnt = del_isolated_nodes_graph(g, evtlog);
 		fprintf(KBM_LOGF, "[%s] deleted %llu isolated nodes\n", date(), (unsigned long long)cnt);
 	}
+
+	// Print complete graph right before computing unitigs.
 	if(!less_out) generic_print_graph(g, print_dot_graph,   prefix, ".3.dot.gz");
+	if(!less_out && (load_nodes == NULL || strlen(load_nodes) != strlen(prefix) + strlen(".3.nodes") || strncmp(load_nodes, prefix, strlen(prefix)) || strcmp(load_nodes + strlen(prefix), ".3.nodes"))){
+		generic_print_graph(g, print_nodes_graph, prefix, ".3.nodes");
+	}
+	if(!less_out) generic_print_graph(g, print_reads_graph, prefix, ".3.reads");
+
+
 	rep = mask_all_branching_nodes_graph(g);
 	fprintf(KBM_LOGF, "[%s] cut %llu branching nodes\n", date(), rep);
 	if(del_iso){
