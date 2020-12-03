@@ -1214,7 +1214,7 @@ int main(int argc, char **argv){
 	cnt = print_ctgs_graph(g, 0, 0, g->major_nctg, prefix, ".ctg.lay.gz", ncpu, evtlog);
 	if(1){
 		fprintf(KBM_LOGF, "[%s] outputing reptigs\n", date());
-		cnt = print_ctgs_graph(g, cnt, g->major_nctg, g->ctgs->size, prefix, ".rtg.lay", ncpu, evtlog);
+		cnt = print_ctgs_graph(g, cnt, g->major_nctg, g->ctgs->size, prefix, ".rtg.lay.gz", ncpu, evtlog);
 	}
 	if(evtlog) fclose(evtlog);
 	free_cplist(pbs);
