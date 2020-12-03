@@ -1195,7 +1195,7 @@ int main(int argc, char **argv){
 	fprintf(KBM_LOGF, "[%s] building contigs\n", date());
 	cnt = gen_contigs_graph(g, evtlog);
 	fprintf(KBM_LOGF, "[%s] searched %llu contigs\n", date(), (unsigned long long)cnt);
-	if(0){
+	if(1){
 		cnt = gen_complex_contigs_graph(g);
 		u8i sum;
 		seqletv *qs;
@@ -1212,7 +1212,7 @@ int main(int argc, char **argv){
 	//cnt = count_isolated_reads_graph(g);
 	//fprintf(KBM_LOGF, "[%s] %llu reads not in contigs\n", date(), (unsigned long long)cnt);
 	cnt = print_ctgs_graph(g, 0, 0, g->major_nctg, prefix, ".ctg.lay.gz", ncpu, evtlog);
-	if(0){
+	if(1){
 		fprintf(KBM_LOGF, "[%s] outputing reptigs\n", date());
 		cnt = print_ctgs_graph(g, cnt, g->major_nctg, g->ctgs->size, prefix, ".rtg.lay", ncpu, evtlog);
 	}
