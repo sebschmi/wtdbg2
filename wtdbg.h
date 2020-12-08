@@ -149,12 +149,19 @@ typedef struct {
 define_list(readv, read_t);
 
 typedef struct {
+    /// A node in the graph, part of the path.
 	u8i node;
 	//node_t *n;
+	/// edge[0] is the edge to reach the ??? node in the path, and edge[1] reaches the ??? node.
 	edge_ref_t edges[2];
+	/// dir: 1 if path traverses (forward/backward) variant of this node, 0 otherwise.
+	/// cov: ???
 	u4i dir:2, cov:30;
+	/// Can be computed with `cal_offset_traces_graph`, but is done anyways right after the injection point.
 	int off;
 } trace_t;
+/// trace_v represents a path in the first graph that wtdbg2 builds.
+/// Is stores a sequence of nodes and the edges that connect them.
 define_list(tracev, trace_t);
 #define WT_TRACE_MSG_ZERO	0
 #define WT_TRACE_MSG_ONE	1

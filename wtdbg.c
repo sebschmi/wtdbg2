@@ -115,6 +115,7 @@ static struct option prog_opts[] = {
 	{"rescue-low-cov-edges",             0, 0, 1032},
 	{"drop-low-cov-edges",               0, 0, 1033},
 	{"mem-stingy",                       0, 0, 1034},
+    {"inject-unitigs",                   1, 0, 9901},
 	{0, 0, 0, 0}
 };
 
@@ -349,6 +350,8 @@ int usage(int level){
 	" --no-chainning-clip\n"
 	"   Defaultly, performs alignments chainning in read clipping\n"
 	"   ** If '--aln-bestn 0 --no-read-clip', alignments will be parsed directly, and less RAM spent on recording alignments\n"
+    " --inject-unitigs <string>\n"
+    "   Instead of computing unitigs in this application, take the safe walks given in a file\n"
 	"\n"
 		);
 	}
@@ -386,6 +389,7 @@ int main(int argc, char **argv){
 	int min_ctg_len, min_ctg_nds, max_trace_end, max_overhang, overwrite, node_order, fast_mode, corr_min, corr_max, corr_bsize, corr_bstep, mem_stingy, num_index;
 	double genome_size, genome_depx;
 	float node_drop, node_mrg, ttr_e_cov, fval, cut_low_edges, corr_mode, corr_cov;
+	char* inject_unitigs;
 	pbs = init_cplist(4);
 	ngs = init_cplist(4);
 	pws = init_cplist(4);
@@ -489,6 +493,7 @@ int main(int argc, char **argv){
 	rpar->min_sim = 0.1;
 	rpar->aln_var = 0.25;
 	opt_flags = 0;
+    inject_unitigs = NULL;
 	while((c = getopt_long(argc, argv, "ht:i:fo:x:E:k:p:K:S:l:m:s:RvqVe:L:Ag:X:", prog_opts, &opt_idx)) != -1){
 		switch(c){
 			case 't': ncpu = atoi(optarg); break;
@@ -613,6 +618,7 @@ int main(int argc, char **argv){
 			case 1033: rescue_low_edges = 0; break;
 			case 'V': fprintf(stdout, "wtdbg2 %s\n", TOSTR(VERSION)); return 0;
 			case 1034: mem_stingy = 1; break;
+			case 9901: inject_unitigs = optarg; break;
 			default: return usage(-1);
 		}
 	}
@@ -1144,8 +1150,13 @@ int main(int argc, char **argv){
     }
     if(!less_out) generic_print_graph(g, print_reads_graph, prefix, ".3.reads");
 
-	fprintf(KBM_LOGF, "[%s] building unitigs\n", date());
-	gen_unitigs_graph(g);
+    if (inject_unitigs == NULL) {
+        fprintf(KBM_LOGF, "[%s] building unitigs\n", date());
+        gen_unitigs_graph(g);
+    } else {
+        fprintf(KBM_LOGF, "[%s] loading unitigs from '%s'\n", date(), inject_unitigs);
+        load_unitigs(g, inject_unitigs);
+    }
 	//fprintf(KBM_LOGF, "[%s] trimming and extending unitigs by local assembly, %d threads\n", date(), ncpu);
 	unitigs2frgs_graph(g, ncpu);
 	if(!less_out) generic_print_graph(g, print_frgs_nodes_graph, prefix, ".frg.nodes");

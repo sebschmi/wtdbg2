@@ -842,6 +842,7 @@ static inline int cal_offset_paths_graph(Graph *g, pathv *path, u8i beg, u8i end
 	return off;
 }
 
+/// Build unitig.
 static inline u8i true_linear_unique_trace_graph(Graph *g, tracev *path, u8i max_step, u8i visit, int *msg){
 	trace_t *t;
 	node_t *n;
@@ -3163,6 +3164,66 @@ static inline u8i gen_unitigs_graph(Graph *g){
 	fprintf(KBM_LOGF, "[%s] ", date()); num_n50(lens, KBM_LOGF); fprintf(KBM_LOGF, "\n");
 	free_u4v(lens);
 	return nutg;
+}
+
+static inline u8i load_unitigs(Graph *g, char *unitigs_file){
+    tracev *path;
+    u4v *lens;
+    trace_t *t;
+    node_t *n;
+    u8i nid, nutg, i;
+    for(i=0;i<g->utgs->size;i++) free_tracev(g->utgs->buffer[i]);
+    clear_vplist(g->utgs);
+    lens = init_u4v(1024);
+    nutg = 0;
+    for(nid=0;nid<g->nodes->size;nid++){
+        g->nodes->buffer[nid].bt_visit = 0;
+        g->nodes->buffer[nid].rep_idx  = MAX_REP_IDX;
+    }
+    FileReader *fr = init_filereader();
+    push_filereader(fr, unitigs_file);
+    while(readline_filereader(fr)){
+        fprintf(KBM_LOGF, "Found line\n");
+        fflush(KBM_LOGF);
+        fprintf(KBM_LOGF, "Found line: %s\n", get_line_str(fr));
+        fflush(KBM_LOGF);
+        int column_count = split_line_filereader(fr, ' ');
+        fprintf(KBM_LOGF, "Column count: %d\n", column_count);
+        fflush(KBM_LOGF);
+        for (int column = 0; column < column_count; column++) {
+            fprintf(KBM_LOGF, "Column %d is: %s\n", column, get_col_str(fr, column));
+            fflush(KBM_LOGF);
+        }
+        continue;
+        /*n = ref_nodev(g->nodes, nid);
+        if(n->closed) continue;
+        if(n->bt_visit) continue;
+        path = init_tracev(4);
+        nutg ++;
+        t = next_ref_tracev(path);
+        t->node = nid;
+        t->edges[0] = EDGE_REF_NULL;
+        t->edges[1] = EDGE_REF_NULL;
+        t->dir = 0;
+        true_linear_unique_trace_graph(g, path, 0xFFFFFFFFFFFFFFFFLLU, nutg, NULL);
+        reverse_tracev(path);
+        for(i=0;i<path->size;i++) path->buffer[i].dir = !path->buffer[i].dir;
+        true_linear_unique_trace_graph(g, path, 0xFFFFFFFFFFFFFFFFLLU, nutg, NULL);*/
+        /////////////////////////////////////
+        ////// OMNITIG INJECTION POINT //////
+        /////////////////////////////////////
+        push_u4v(lens, cal_offset_traces_graph(g, path, 0, path->size, 0) * KBM_BIN_SIZE);
+        for(i=0;i<path->size;i++){
+            ref_nodev(g->nodes, path->buffer[i].node)->rep_idx = g->utgs->size;
+        }
+        push_vplist(g->utgs, path);
+    }
+    fprintf(KBM_LOGF, "Finished reading file, terminating test case\n");
+    exit(0);
+    fprintf(KBM_LOGF, "[%s] ", date()); num_n50(lens, KBM_LOGF); fprintf(KBM_LOGF, "\n");
+    free_filereader(fr);
+    free_u4v(lens);
+    return nutg;
 }
 
 static inline seqletv* path2seqlets_graph(Graph *g, pathv *path){
