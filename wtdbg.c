@@ -1136,19 +1136,21 @@ int main(int argc, char **argv){
 		fprintf(KBM_LOGF, "[%s] deleted %llu isolated nodes\n", date(), (unsigned long long)cnt);
 	}
 
-	rep = mask_all_branching_nodes_graph(g);
-	fprintf(KBM_LOGF, "[%s] cut %llu branching nodes\n", date(), rep);
-	if(del_iso){
-		cnt = del_isolated_nodes_graph(g, evtlog);
-		fprintf(KBM_LOGF, "[%s] deleted %llu isolated nodes\n", date(), (unsigned long long)cnt);
-	}
-
     // Print complete graph right before computing unitigs.
     if(!less_out) generic_print_graph(g, print_dot_graph,   prefix, ".3.dot.gz");
     if(!less_out && (load_nodes == NULL || strlen(load_nodes) != strlen(prefix) + strlen(".3.nodes") || strncmp(load_nodes, prefix, strlen(prefix)) || strcmp(load_nodes + strlen(prefix), ".3.nodes"))){
         generic_print_graph(g, print_nodes_graph, prefix, ".3.nodes");
     }
     if(!less_out) generic_print_graph(g, print_reads_graph, prefix, ".3.reads");
+    // DO NOT MOVE THIS AFTER MASKING THE BRANCHING NODES!!!!
+    // THE NEXT STEP ALREADY BREAKS THE GRAPH UP INTO UNITIGS!!!!
+
+	rep = mask_all_branching_nodes_graph(g);
+	fprintf(KBM_LOGF, "[%s] cut %llu branching nodes\n", date(), rep);
+	if(del_iso){
+		cnt = del_isolated_nodes_graph(g, evtlog);
+		fprintf(KBM_LOGF, "[%s] deleted %llu isolated nodes\n", date(), (unsigned long long)cnt);
+	}
 
     if (inject_unitigs == NULL) {
         fprintf(KBM_LOGF, "[%s] building unitigs\n", date());
@@ -1157,6 +1159,7 @@ int main(int argc, char **argv){
         fprintf(KBM_LOGF, "[%s] loading unitigs from '%s'\n", date(), inject_unitigs);
         load_unitigs(g, inject_unitigs);
     }
+
 	//fprintf(KBM_LOGF, "[%s] trimming and extending unitigs by local assembly, %d threads\n", date(), ncpu);
 	unitigs2frgs_graph(g, ncpu);
 	if(!less_out) generic_print_graph(g, print_frgs_nodes_graph, prefix, ".frg.nodes");
