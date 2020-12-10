@@ -3190,7 +3190,8 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file){
         int column_count = split_line_filereader(fr, ' ');
         fprintf(KBM_LOGF, "Column count: %d\n", column_count);
         fflush(KBM_LOGF);
-        for (int column = 0; column < column_count; column++) {
+        int column;
+        for (column = 0; column < column_count; column++) {
             fprintf(KBM_LOGF, "Column %d is: %s\n", column, get_col_str(fr, column));
             fflush(KBM_LOGF);
         }
