@@ -207,6 +207,10 @@ typedef struct {
 } frg_t;
 define_list(frgv, frg_t);
 
+void kbm_logf_frg_t(frg_t *frg) {
+    fprintf(KBM_LOGF, "frg_t {toff: %ld; tcnt: %ld; tx: %d; ty: %d}\n", frg->toff, frg->tcnt, frg->tx, frg->ty);
+}
+
 typedef struct {
 	edge_ref_t lnks[2];
 	u4i frg;
