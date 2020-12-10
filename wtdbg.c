@@ -373,6 +373,8 @@ static inline int64_t mm_parse_num(const char *str)
 }
 
 int main(int argc, char **argv){
+    srand(111);
+
 	Graph *g;
 	KBMPar *par, *rpar;
 	KBM *kbm;
@@ -1052,7 +1054,7 @@ int main(int argc, char **argv){
 	if(ttr_n_cov){
 		//print_node_edges_cov_graph(g, evtlog);
 		cnt = mask_nodes_by_edge_cov_graph(g, ttr_n_cov, ttr_e_cov, evtlog);
-		fprintf(KBM_LOGF, "[%s] deleted %llu nodes, might be tandom repeats\n", date(), (unsigned long long)cnt);
+		fprintf(KBM_LOGF, "[%s] deleted %llu nodes, might be tandem repeats\n", date(), (unsigned long long)cnt);
 	}
 	if(!less_out) generic_print_graph(g, print_reads_graph, prefix, ".1.reads");
 	if(!less_out) generic_print_graph(g, print_dot_full_graph,   prefix, ".1.dot.gz");

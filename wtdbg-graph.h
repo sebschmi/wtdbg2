@@ -3273,7 +3273,7 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file){
             int dir = *get_col_str(fr, column + 1) == '+' ? 0 : 1;
             n = ref_nodev(g->nodes, nid);
             if(n->closed) {
-                fprintf(KBM_LOGF, "Safe walk contains closed node (contig %d (zero-based); node %d)\n", line, column / 2);
+                fprintf(KBM_LOGF, "Safe walk contains closed node (contig %d (zero-based); position %d; node index: %llu)\n", line, column / 2, nid);
                 exit(1);
             }
 
@@ -3370,7 +3370,6 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file){
 
             prev_t = t;
             prev_n = n;
-            line += 1;
         }
         //fprintf(KBM_LOGF, "Finished reading file, terminating test case\n");
         //exit(0);
@@ -3404,6 +3403,7 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file){
         }
         push_vplist(g->utgs, inner_path);
         inner_path = NULL;
+        line += 1;
     }
     //fprintf(KBM_LOGF, "Finished reading file, terminating test case\n");
     //exit(0);
