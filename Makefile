@@ -14,6 +14,8 @@ else
 CFLAGS=-g3 -W -Wall -Wno-unused-but-set-variable -O4 -DVERSION="$(VERSION)" -DRELEASE="$(RELEASE)" -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -mpopcnt -march=native
 endif
 
+ASAN_CFLAGS=-g3 -W -Wall -Wno-unused-but-set-variable -Og -DVERSION="$(VERSION)" -DRELEASE="$(RELEASE)" -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -mpopcnt -march=native
+
 GLIBS=-lm -lrt -lpthread -lz
 GENERIC_SRC=mem_share.h chararray.h sort.h list.h pgzf.h sort.h list.h dna.h thread.h filereader.h filewriter.h bitvec.h bit2vec.h bitsvec.h hashset.h
 
@@ -26,6 +28,9 @@ kbm2: $(GENERIC_SRC) kbm.c kbm.h kbmpoa.h wtpoa.h tripoa.h poacns.h kswx.h ksw.h
 
 wtdbg2: $(GENERIC_SRC) wtdbg.c wtdbg-graph.h wtdbg.h kbm.h kswx.h ksw.h ksw.c kbmpoa.h wtpoa.h tripoa.h poacns.h
 	$(CC) $(CFLAGS) -o $@ wtdbg.c ksw.c $(GLIBS)
+
+wtdbg2-asan: $(GENERIC_SRC) wtdbg.c wtdbg-graph.h wtdbg.h kbm.h kswx.h ksw.h ksw.c kbmpoa.h wtpoa.h tripoa.h poacns.h
+	$(CC) $(ASAN_CFLAGS)  -fsanitize=address -fno-omit-frame-pointer -o $@ wtdbg.c ksw.c $(GLIBS) -lasan
 
 wtdbg-cns: $(GENERIC_SRC) wtdbg-cns.c kswx.h ksw.h ksw.c dbgcns.h dagcns.h queue.h general_graph.h
 	$(CC) $(CFLAGS) -o wtdbg-cns wtdbg-cns.c ksw.c $(GLIBS)

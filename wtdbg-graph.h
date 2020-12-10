@@ -3259,11 +3259,10 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file){
     push_filereader(fr, unitigs_file);
     int line = 0;
     while(readline_filereader(fr)){
-        fprintf(KBM_LOGF, "Reading contig %4d: %s\n", line, get_line_str(fr));
+        //fprintf(KBM_LOGF, "Reading contig %4d: %s\n", line, get_line_str(fr));
 
         int column_count = split_line_filereader(fr, ' ');
         clear_tracev(path);
-        prev_t = NULL;
         prev_n = NULL;
         nutg ++;
         int column;
@@ -3271,6 +3270,12 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file){
         for (column = 0; column + 1 < column_count; column += 2) {
             nid = atoi(get_col_str(fr, column));
             int dir = *get_col_str(fr, column + 1) == '+' ? 0 : 1;
+
+            if (nid < 0 || nid >= g->nodes->size) {
+                fprintf(KBM_LOGF, "Node index out of range: %llu (contig %d (zero-based); position %d)\n", nid, line, column / 2);
+                exit(1);
+            }
+
             n = ref_nodev(g->nodes, nid);
             if(n->closed) {
                 fprintf(KBM_LOGF, "Safe walk contains closed node (contig %d (zero-based); position %d; node index: %llu)\n", line, column / 2, nid);
@@ -3282,6 +3287,9 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file){
             t->edges[0] = EDGE_REF_NULL;
             t->edges[1] = EDGE_REF_NULL;
             t->dir = dir;
+            if (column > 0) {
+                prev_t = ref_tracev(path, column / 2 - 1);
+            }
 
             if (prev_t != NULL && prev_n != NULL) {
                 //fprintf(KBM_LOGF, "Searching for edge %llu%s -> %llu%s\n", prev_t->node, prev_t->dir ? "-" : "+", t->node, t->dir ? "-" : "+");
@@ -3368,7 +3376,6 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file){
                  */
             }
 
-            prev_t = t;
             prev_n = n;
         }
         //fprintf(KBM_LOGF, "Finished reading file, terminating test case\n");
@@ -5110,6 +5117,7 @@ static inline u8i print_frgs_nodes_graph(Graph *g, FILE *out){
 }
 
 static inline u8i print_frgs_dot_graph(Graph *g, FILE *_out){
+    fprintf(KBM_LOGF, "enter print_frgs_dot_graph\n");
 	BufferedWriter *bw;
 	frg_t *frg;
 	trace_t *t1, *t2;
@@ -5124,17 +5132,21 @@ static inline u8i print_frgs_dot_graph(Graph *g, FILE *_out){
 	fprintf(bw->out, "digraph {\n");
 	fprintf(bw->out, "node [shape=record]\n");
 	for(i=0;i<g->frgs->size;i++){
+        fprintf(KBM_LOGF, "writing node for frag %llu\n", i);
 		if((i % 1000) == 0) flush_bufferedwriter(bw);
 		frg = ref_frgv(g->frgs, i);
 		if(frg->closed){
 			continue;
 		}
 		//if(frg->ty - frg->tx < (u4i)g->min_ctg_nds) continue;
+        fprintf(KBM_LOGF, "getting first and last trace entry (%llu and %llu)\n", frg->toff + frg->tx, frg->toff + frg->ty - 1);
 		t1 = ref_tracev(g->traces, frg->toff + frg->tx);
 		t2 = ref_tracev(g->traces, frg->toff + frg->ty - 1);
+        fprintf(KBM_LOGF, "getting first and last node entry (%llu and %llu)\n", t1->node, t2->node);
 		n1 = ref_nodev(g->nodes, t1->node);
 		n2 = ref_nodev(g->nodes, t2->node);
 		r1 = NULL; max = 0;
+        fprintf(KBM_LOGF, "iterating regs of first node\n");
 		for(j=0;j<n1->regs.cnt;j++){
 			rr = ref_regv(g->regs, n1->regs.idx + j);
 			if(g->reads->buffer[rr->rid].regs.cnt > max){
@@ -5146,6 +5158,7 @@ static inline u8i print_frgs_dot_graph(Graph *g, FILE *_out){
 			continue;
 		}
 		r2 = NULL; max = 0;
+        fprintf(KBM_LOGF, "iterating regs of last node\n");
 		for(j=0;j<n2->regs.cnt;j++){
 			rr = ref_regv(g->regs, n2->regs.idx + j);
 			if(g->reads->buffer[rr->rid].regs.cnt > max){
@@ -5156,11 +5169,15 @@ static inline u8i print_frgs_dot_graph(Graph *g, FILE *_out){
 		if(r2 == NULL){
 			continue;
 		}
+        fprintf(KBM_LOGF, "writing to file\n");
 		fprintf(bw->out, "F%llu [label=\"{F%llu %u %u/%u | { {N%llu:%c | %s | %c_%d_%d} | {N%llu:%c | %s | %c_%d_%d}}}\"]\n", i, i, frg->ty - frg->tx, frg->len, frg->length,
 			t1->node, "+-"[t1->dir], g->kbm->reads->buffer[r1->rid].tag, "FR"[r1->dir], r1->beg, r1->end - r1->beg,
 			t2->node, "+-"[t2->dir], g->kbm->reads->buffer[r2->rid].tag, "FR"[r2->dir], r2->beg, r2->end - r2->beg);
 	}
+    flush_bufferedwriter(bw);
+	fprintf(KBM_LOGF, "Wrote nodes\n");
 	for(i=0;i<g->frgs->size;i++){
+        fprintf(KBM_LOGF, "writing edges for frag %llu\n", i);
 		if((i % 1000) == 0) flush_bufferedwriter(bw);
 		frg = ref_frgv(g->frgs, i);
 		if(frg->closed) continue;
@@ -5185,6 +5202,7 @@ static inline u8i print_frgs_dot_graph(Graph *g, FILE *_out){
 	fprintf(bw->out, "}\n");
 	end_bufferedwriter(bw);
 	close_bufferedwriter(bw);
+    fprintf(KBM_LOGF, "exit print_frgs_dot_graph\n");
 	return 0;
 }
 

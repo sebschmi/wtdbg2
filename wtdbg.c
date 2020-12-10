@@ -1179,7 +1179,7 @@ int main(int argc, char **argv){
 	fprintf(KBM_LOGF, "[%s] generating links\n", date());
 	cnt = gen_lnks_graph(g, ncpu, evtlog);
 	fprintf(KBM_LOGF, "[%s] generated %llu links\n", date(), cnt);
-	if(!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".frg.dot.gz");
+	if(!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".frg.dot");
 	if(1){
 		cnt = rescue_weak_tip_lnks_graph(g);
 		fprintf(KBM_LOGF, "[%s] rescue %llu weak links\n", date(), (unsigned long long)cnt);
