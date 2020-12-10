@@ -116,6 +116,7 @@ static struct option prog_opts[] = {
 	{"drop-low-cov-edges",               0, 0, 1033},
 	{"mem-stingy",                       0, 0, 1034},
     {"inject-unitigs",                   1, 0, 9901},
+    {"compute-graph-only",               0, 0, 9902},
 	{0, 0, 0, 0}
 };
 
@@ -352,6 +353,8 @@ int usage(int level){
 	"   ** If '--aln-bestn 0 --no-read-clip', alignments will be parsed directly, and less RAM spent on recording alignments\n"
     " --inject-unitigs <string>\n"
     "   Instead of computing unitigs in this application, take the safe walks given in a file\n"
+    " --compute-graph-only\n"
+    "   Abort the program after outputting the graph, do not compute contigs\n"
 	"\n"
 		);
 	}
@@ -390,6 +393,7 @@ int main(int argc, char **argv){
 	double genome_size, genome_depx;
 	float node_drop, node_mrg, ttr_e_cov, fval, cut_low_edges, corr_mode, corr_cov;
 	char* inject_unitigs;
+	int compute_graph_only;
 	pbs = init_cplist(4);
 	ngs = init_cplist(4);
 	pws = init_cplist(4);
@@ -494,6 +498,7 @@ int main(int argc, char **argv){
 	rpar->aln_var = 0.25;
 	opt_flags = 0;
     inject_unitigs = NULL;
+    compute_graph_only = 0;
 	while((c = getopt_long(argc, argv, "ht:i:fo:x:E:k:p:K:S:l:m:s:RvqVe:L:Ag:X:", prog_opts, &opt_idx)) != -1){
 		switch(c){
 			case 't': ncpu = atoi(optarg); break;
@@ -619,6 +624,7 @@ int main(int argc, char **argv){
 			case 'V': fprintf(stdout, "wtdbg2 %s\n", TOSTR(VERSION)); return 0;
 			case 1034: mem_stingy = 1; break;
 			case 9901: inject_unitigs = optarg; break;
+			case 9902: compute_graph_only = 1; break;
 			default: return usage(-1);
 		}
 	}
@@ -1145,14 +1151,19 @@ int main(int argc, char **argv){
     // DO NOT MOVE THIS AFTER MASKING THE BRANCHING NODES!!!!
     // THE NEXT STEP ALREADY BREAKS THE GRAPH UP INTO UNITIGS!!!!
 
-	rep = mask_all_branching_nodes_graph(g);
-	fprintf(KBM_LOGF, "[%s] cut %llu branching nodes\n", date(), rep);
-	if(del_iso){
-		cnt = del_isolated_nodes_graph(g, evtlog);
-		fprintf(KBM_LOGF, "[%s] deleted %llu isolated nodes\n", date(), (unsigned long long)cnt);
-	}
+    if (compute_graph_only) {
+        fprintf(KBM_LOGF, "Aborting early because --compute-graph-only was specified\n");
+        return 0;
+    }
 
     if (inject_unitigs == NULL) {
+        rep = mask_all_branching_nodes_graph(g);
+        fprintf(KBM_LOGF, "[%s] cut %llu branching nodes\n", date(), rep);
+        if(del_iso){
+            cnt = del_isolated_nodes_graph(g, evtlog);
+            fprintf(KBM_LOGF, "[%s] deleted %llu isolated nodes\n", date(), (unsigned long long)cnt);
+        }
+
         fprintf(KBM_LOGF, "[%s] building unitigs\n", date());
         gen_unitigs_graph(g);
     } else {

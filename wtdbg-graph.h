@@ -3166,11 +3166,85 @@ static inline u8i gen_unitigs_graph(Graph *g){
 	return nutg;
 }
 
+static inline edge_ref_t* find_unique_edge_between(Graph *g, trace_t *t1, trace_t *t2) {
+    edge_ref_t *result = NULL;
+    node_t *n1 = &g->nodes->buffer[t1->node];
+
+    if (n1->edges[t1->dir].cnt != 0) {
+        u8i edge_index = n1->edges[t1->dir].idx;
+        while (edge_index) {
+            edge_ref_t *f = ref_edgerefv(g->erefs, edge_index);
+            edge_t *e = &g->edges->buffer[f->idx];
+
+            /*if (f->flg) {
+                fprintf(KBM_LOGF, "rev: ");
+            } else {
+                fprintf(KBM_LOGF, "for: ");
+            }
+            kbm_logf_edge_t(e);*/
+            edge_index = f->next;
+
+            if (e->node1 == e->node2) {
+                fprintf(KBM_LOGF, "Found self loop\n");
+                exit(1);
+            }
+
+            if (e->flag) {
+                fprintf(KBM_LOGF, "Found edge with set flag\n");
+                exit(1);
+            }
+
+            u8i target_node;
+            int target_dir;
+
+            if (f->flg) {
+                if (e->dir2 == t1->dir) {
+                    fprintf(KBM_LOGF, "Found edge not originating from node\n");
+                    exit(1);
+                }
+
+                target_node = e->node1;
+                target_dir = !e->dir1;
+            } else {
+                if (e->dir1 != t1->dir) {
+                    fprintf(KBM_LOGF, "Found edge not originating from node\n");
+                    exit(1);
+                }
+
+                target_node = e->node2;
+                target_dir = e->dir2;
+            }
+
+            if (target_node == t2->node && target_dir == t2->dir) {
+                if (e->closed) {
+                    fprintf(KBM_LOGF, "Found closed edge\n");
+                    continue;
+                }
+
+                if (result) {
+                    fprintf(KBM_LOGF, "Found two edges\n");
+                    return NULL;
+                } else {
+                    result = f;
+                }
+            } else {
+                //fprintf(KBM_LOGF, "Target node/dir %llu/%d does not match %llu/%d\n", target_node, target_dir, t2->node, t2->dir);
+            }
+        }
+    }
+
+    if (!result) {
+        fprintf(KBM_LOGF, "Found no edge\n");
+    }
+
+    return result;
+}
+
 static inline u8i load_unitigs(Graph *g, char *unitigs_file){
-    tracev *path;
+    tracev *path, *inner_path;
     u4v *lens;
-    trace_t *t;
-    node_t *n;
+    trace_t *t, *prev_t;
+    node_t *n, *prev_n;
     u8i nid, nutg, i;
     for(i=0;i<g->utgs->size;i++) free_tracev(g->utgs->buffer[i]);
     clear_vplist(g->utgs);
@@ -3180,22 +3254,127 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file){
         g->nodes->buffer[nid].bt_visit = 0;
         g->nodes->buffer[nid].rep_idx  = MAX_REP_IDX;
     }
+    path = init_tracev(4);
     FileReader *fr = init_filereader();
     push_filereader(fr, unitigs_file);
+    int line = 0;
     while(readline_filereader(fr)){
-        fprintf(KBM_LOGF, "Found line\n");
-        fflush(KBM_LOGF);
-        fprintf(KBM_LOGF, "Found line: %s\n", get_line_str(fr));
-        fflush(KBM_LOGF);
+        fprintf(KBM_LOGF, "Reading contig %4d: %s\n", line, get_line_str(fr));
+
         int column_count = split_line_filereader(fr, ' ');
-        fprintf(KBM_LOGF, "Column count: %d\n", column_count);
-        fflush(KBM_LOGF);
+        clear_tracev(path);
+        prev_t = NULL;
+        prev_n = NULL;
+        nutg ++;
         int column;
-        for (column = 0; column < column_count; column++) {
-            fprintf(KBM_LOGF, "Column %d is: %s\n", column, get_col_str(fr, column));
-            fflush(KBM_LOGF);
+
+        for (column = 0; column + 1 < column_count; column += 2) {
+            nid = atoi(get_col_str(fr, column));
+            int dir = *get_col_str(fr, column + 1) == '+' ? 0 : 1;
+            n = ref_nodev(g->nodes, nid);
+            if(n->closed) {
+                fprintf(KBM_LOGF, "Safe walk contains closed node (contig %d (zero-based); node %d)\n", line, column / 2);
+                exit(1);
+            }
+
+            t = next_ref_tracev(path);
+            t->node = nid;
+            t->edges[0] = EDGE_REF_NULL;
+            t->edges[1] = EDGE_REF_NULL;
+            t->dir = dir;
+
+            if (prev_t != NULL && prev_n != NULL) {
+                //fprintf(KBM_LOGF, "Searching for edge %llu%s -> %llu%s\n", prev_t->node, prev_t->dir ? "-" : "+", t->node, t->dir ? "-" : "+");
+                //kbm_logf_node_edges(g, prev_n);
+
+                //fprintf(KBM_LOGF, "Searching unique edge\n");
+                edge_ref_t *edge = find_unique_edge_between(g, prev_t, t);
+
+                if (!edge) {
+                    fprintf(KBM_LOGF, "Found no unique edge\n");
+                    exit(1);
+                }
+
+                prev_t->edges[0] = *edge;
+                t->edges[1] = *edge;
+                t->edges[1].flg = !t->edges[1].flg;
+
+                /*
+                static inline edge_ref_t* first_living_edge_graph(Graph *g, node_t *n, int dir, int *info){
+                    edge_ref_t *f, *ret;
+                    u8i idx;
+                    ret = NULL;
+                    if(info){
+                        *info = WT_TRACE_MSG_ZERO;
+                        if(n->edges[dir].cnt == 0) return NULL;
+                        idx = n->edges[dir].idx;
+                        while(idx){
+                            f = ref_edgerefv(g->erefs, idx);
+                            idx = f->next;
+                            if(g->edges->buffer[f->idx].closed) continue;
+                            if(ret){ *info = WT_TRACE_MSG_MORE; return NULL; }
+                            else { *info = WT_TRACE_MSG_ONE; ret = f; }
+                        }
+                    } else {
+                        if(n->edges[dir].cnt == 0) return NULL;
+                        idx = n->edges[dir].idx;
+                        while(idx){
+                            f = ref_edgerefv(g->erefs, idx);
+                            idx = f->next;
+                            if(g->edges->buffer[f->idx].closed) continue;
+                            if(ret){ return NULL; }
+                            else { ret = f; }
+                        }
+                    }
+                    return ret;
+                }
+
+                static inline u8i true_linear_unique_trace_graph(Graph *g, tracev *path, u8i max_step, u8i visit, int *msg){
+                    trace_t *t;
+                    node_t *n;
+                    edge_t *e;
+                    edge_ref_t *f;
+                    u8i step;
+                    int dir, info;
+                    if(path->size == 0){
+                        if(msg) *msg = WT_TRACE_MSG_ZERO;
+                        return 0;
+                    }
+                    step = 0;
+                    if(msg) *msg = WT_TRACE_MSG_ONE;
+                    while(step < max_step){
+                        t = ref_tracev(path, path->size - 1);
+                        f = first_living_edge_graph(g, ref_nodev(g->nodes, t->node), !t->dir, &info);
+                        if(info == WT_TRACE_MSG_MORE){ if(path->size > 1) path->size --; if(msg) *msg = -1 - info; break; }
+                        n = ref_nodev(g->nodes, t->node);
+                        n->bt_visit = visit;
+                        f = first_living_edge_graph(g, ref_nodev(g->nodes, t->node),  t->dir, &info);
+                        if(info == WT_TRACE_MSG_ZERO){ if(msg) *msg = info; break; }
+                        else if(info == WT_TRACE_MSG_MORE){ if(path->size > 1) path->size --; if(msg) *msg = info; break; }
+                        e = g->edges->buffer + f->idx;
+                        n = ref_nodev(g->nodes, f->flg? e->node1 : e->node2);
+                        if(n->bt_visit == visit){ if(msg) *msg = WT_TRACE_MSG_VISITED; break; }
+                        dir = f->flg? !e->dir1 : e->dir2;
+                        t->edges[t->dir] = *f;
+                        t = next_ref_tracev(path);
+                        t->node = n - g->nodes->buffer;
+                        t->dir = dir;
+                        t->edges[!t->dir] = (edge_ref_t){f->idx, !f->flg, 0};
+                        t->edges[t->dir] = EDGE_REF_NULL;
+                        step ++;
+                    }
+                    return step;
+                }
+                 */
+            }
+
+            prev_t = t;
+            prev_n = n;
+            line += 1;
         }
-        continue;
+        //fprintf(KBM_LOGF, "Finished reading file, terminating test case\n");
+        //exit(0);
+        //continue;
         /*n = ref_nodev(g->nodes, nid);
         if(n->closed) continue;
         if(n->bt_visit) continue;
@@ -3213,14 +3392,21 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file){
         /////////////////////////////////////
         ////// OMNITIG INJECTION POINT //////
         /////////////////////////////////////
-        push_u4v(lens, cal_offset_traces_graph(g, path, 0, path->size, 0) * KBM_BIN_SIZE);
-        for(i=0;i<path->size;i++){
-            ref_nodev(g->nodes, path->buffer[i].node)->rep_idx = g->utgs->size;
+
+        inner_path = init_tracev(count_tracev(path) - 2);
+        for (i=1; i<path->size - 1; i++) {
+            push_tracev(inner_path, get_tracev(path, i));
         }
-        push_vplist(g->utgs, path);
+
+        push_u4v(lens, cal_offset_traces_graph(g, inner_path, 0, inner_path->size, 0) * KBM_BIN_SIZE);
+        for(i=0;i<inner_path->size;i++){
+            ref_nodev(g->nodes, inner_path->buffer[i].node)->rep_idx = g->utgs->size;
+        }
+        push_vplist(g->utgs, inner_path);
+        inner_path = NULL;
     }
-    fprintf(KBM_LOGF, "Finished reading file, terminating test case\n");
-    exit(0);
+    //fprintf(KBM_LOGF, "Finished reading file, terminating test case\n");
+    //exit(0);
     fprintf(KBM_LOGF, "[%s] ", date()); num_n50(lens, KBM_LOGF); fprintf(KBM_LOGF, "\n");
     free_filereader(fr);
     free_u4v(lens);
@@ -3605,7 +3791,9 @@ static inline int cut_edge_subgraph(subnodehash *nodes, subedgev *edges, u4i nod
 static inline u4i unitigs2frgs_graph(Graph *g, int ncpu){
 	frg_t *frg;
 	node_t *n;
+	/// A unitig
 	tracev *ts;
+	/// A single node of a unitig.
 	trace_t *t;
 	u4i i, j, tid, ret;
 	{

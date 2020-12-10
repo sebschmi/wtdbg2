@@ -86,6 +86,18 @@ typedef struct {
 } edge_t;
 define_list(edgev, edge_t);
 
+void kbm_logf_edge_t(edge_t *e) {
+    char* closed = NULL;
+    switch (e->closed) {
+        case 0: closed = "NULL"; break;
+        case 1: closed = "MASK"; break;
+        case 2: closed = "LESS"; break;
+        case 3: closed = "HARD"; break;
+        default: fprintf(KBM_LOGF, "Unknown edge closed state: %d", e->closed);
+    }
+    fprintf(KBM_LOGF, "Edge %7lu%s -> %7lu%s [status: %d; closed: %s; flag: %d; cov: %3d; off: %2d]\n", e->node1, e->dir1 ? "-" : "+", e->node2, e->dir2 ? "-" : "+", e->status, closed, e->flag, e->cov, e->off);
+}
+
 static inline uint64_t _edge_hashcode(edge_t e){
 	const uint64_t m = 0xc6a4a7935bd1e995LLU;
 	const int r = 47;
@@ -259,6 +271,29 @@ typedef struct {
 	u4i    major_nctg;
 	vplist *ctgs;
 } Graph;
+
+void kbm_logf_node_edges(Graph *g, node_t *n) {
+    fprintf(KBM_LOGF, "Printing forward edges\n");
+    if (n->edges[0].cnt != 0) {
+        u8i edge_index = n->edges[0].idx;
+        while (edge_index) {
+            edge_ref_t *f = ref_edgerefv(g->erefs, edge_index);
+            kbm_logf_edge_t(&g->edges->buffer[f->idx]);
+            edge_index = f->next;
+            if(g->edges->buffer[f->idx].closed) continue;
+        }
+    }
+    fprintf(KBM_LOGF, "Printing reverse edges\n");
+    if (n->edges[1].cnt != 0) {
+        u8i edge_index = n->edges[1].idx;
+        while (edge_index) {
+            edge_ref_t *f = ref_edgerefv(g->erefs, edge_index);
+            kbm_logf_edge_t(&g->edges->buffer[f->idx]);
+            edge_index = f->next;
+            if(g->edges->buffer[f->idx].closed) continue;
+        }
+    }
+}
 
 static const char *colors[2][2] = {{"blue", "green"}, {"red", "gray"}};
 
