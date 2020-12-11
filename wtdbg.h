@@ -95,7 +95,7 @@ void kbm_logf_edge_t(edge_t *e) {
         case 3: closed = "HARD"; break;
         default: fprintf(KBM_LOGF, "Unknown edge closed state: %d", e->closed);
     }
-    fprintf(KBM_LOGF, "Edge %7lu%s -> %7lu%s [status: %d; closed: %s; flag: %d; cov: %3d; off: %2d]\n", e->node1, e->dir1 ? "-" : "+", e->node2, e->dir2 ? "-" : "+", e->status, closed, e->flag, e->cov, e->off);
+    fprintf(KBM_LOGF, "Edge %7lu%s -> %7lu%s [status: %d; closed: %s; flag: %d; cov: %3d; off: %2d]\n", (long unsigned) e->node1, e->dir1 ? "-" : "+", (long unsigned) e->node2, e->dir2 ? "-" : "+", e->status, closed, e->flag, e->cov, e->off);
 }
 
 static inline uint64_t _edge_hashcode(edge_t e){
@@ -208,7 +208,7 @@ typedef struct {
 define_list(frgv, frg_t);
 
 void kbm_logf_frg_t(frg_t *frg) {
-    fprintf(KBM_LOGF, "frg_t {toff: %llu; tcnt: %llu; tx: %d; ty: %d}\n", (long long unsigned) frg->toff, (long long unsigned) frg->tcnt, frg->tx, frg->ty);
+    fprintf(KBM_LOGF, "frg_t {toff: %lu; tcnt: %lu; tx: %d; ty: %d}\n", (long unsigned) frg->toff, (long unsigned) frg->tcnt, frg->tx, frg->ty);
 }
 
 typedef struct {
