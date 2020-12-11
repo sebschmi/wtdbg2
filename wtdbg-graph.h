@@ -3288,6 +3288,8 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file){
             t->dir = dir;
             if (column > 0) {
                 prev_t = ref_tracev(path, column / 2 - 1);
+            } else {
+                prev_t = NULL;
             }
 
             if (prev_t != NULL && prev_n != NULL) {

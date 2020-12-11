@@ -208,7 +208,7 @@ typedef struct {
 define_list(frgv, frg_t);
 
 void kbm_logf_frg_t(frg_t *frg) {
-    fprintf(KBM_LOGF, "frg_t {toff: %ld; tcnt: %ld; tx: %d; ty: %d}\n", frg->toff, frg->tcnt, frg->tx, frg->ty);
+    fprintf(KBM_LOGF, "frg_t {toff: %llu; tcnt: %llu; tx: %d; ty: %d}\n", (long long unsigned) frg->toff, (long long unsigned) frg->tcnt, frg->tx, frg->ty);
 }
 
 typedef struct {
