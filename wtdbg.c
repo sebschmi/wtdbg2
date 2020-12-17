@@ -117,6 +117,7 @@ static struct option prog_opts[] = {
 	{"mem-stingy",                       0, 0, 1034},
     {"inject-unitigs",                   1, 0, 9901},
     {"compute-graph-only",               0, 0, 9902},
+    {"skip-fragment-assembly",           0, 0, 9903},
 	{0, 0, 0, 0}
 };
 
@@ -355,6 +356,8 @@ int usage(int level){
     "   Instead of computing unitigs in this application, take the safe walks given in a file\n"
     " --compute-graph-only\n"
     "   Abort the program after outputting the graph, do not compute contigs\n"
+    " --skip-fragment-assembly\n"
+    "   Do not join unitigs using the fragment graph, just output them directly. This must not be used together with ctg-min-nodes, as in this case contigs are just one node in the fragment graph.\n"
 	"\n"
 		);
 	}
@@ -395,7 +398,7 @@ int main(int argc, char **argv){
 	double genome_size, genome_depx;
 	float node_drop, node_mrg, ttr_e_cov, fval, cut_low_edges, corr_mode, corr_cov;
 	char* inject_unitigs;
-	int compute_graph_only;
+	int compute_graph_only, skip_fragment_assembly;
 	pbs = init_cplist(4);
 	ngs = init_cplist(4);
 	pws = init_cplist(4);
@@ -501,6 +504,7 @@ int main(int argc, char **argv){
 	opt_flags = 0;
     inject_unitigs = NULL;
     compute_graph_only = 0;
+    skip_fragment_assembly = 0;
 	while((c = getopt_long(argc, argv, "ht:i:fo:x:E:k:p:K:S:l:m:s:RvqVe:L:Ag:X:", prog_opts, &opt_idx)) != -1){
 		switch(c){
 			case 't': ncpu = atoi(optarg); break;
@@ -627,6 +631,7 @@ int main(int argc, char **argv){
 			case 1034: mem_stingy = 1; break;
 			case 9901: inject_unitigs = optarg; break;
 			case 9902: compute_graph_only = 1; break;
+			case 9903: skip_fragment_assembly = 1; min_ctg_nds = 0; break;
 			default: return usage(-1);
 		}
 	}
@@ -1176,50 +1181,59 @@ int main(int argc, char **argv){
 	//fprintf(KBM_LOGF, "[%s] trimming and extending unitigs by local assembly, %d threads\n", date(), ncpu);
 	unitigs2frgs_graph(g, ncpu);
 	if(!less_out) generic_print_graph(g, print_frgs_nodes_graph, prefix, ".frg.nodes");
-	fprintf(KBM_LOGF, "[%s] generating links\n", date());
-	cnt = gen_lnks_graph(g, ncpu, evtlog);
-	fprintf(KBM_LOGF, "[%s] generated %llu links\n", date(), cnt);
-	if(!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".frg.dot");
-	if(1){
-		cnt = rescue_weak_tip_lnks_graph(g);
-		fprintf(KBM_LOGF, "[%s] rescue %llu weak links\n", date(), (unsigned long long)cnt);
+
+	if (!skip_fragment_assembly) {
+        fprintf(KBM_LOGF, "[%s] generating links\n", date());
+        cnt = gen_lnks_graph(g, ncpu, evtlog);
+        fprintf(KBM_LOGF, "[%s] generated %llu links\n", date(), cnt);
+        if (!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".frg.dot.gz");
+        if (1) {
+            cnt = rescue_weak_tip_lnks_graph(g);
+            fprintf(KBM_LOGF, "[%s] rescue %llu weak links\n", date(), (unsigned long long) cnt);
+        }
+        if (!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".2.frg.dot.gz");
+        cnt = cut_binary_lnks_graph(g, evtlog);
+        fprintf(KBM_LOGF, "[%s] deleted %llu binary links\n", date(), (unsigned long long) cnt);
+        //cnt = reduce_transitive_lnks_graph(g);
+        cnt = myers_transitive_reduction_frg_graph(g, 10000.1f / KBM_BIN_SIZE);
+        fprintf(KBM_LOGF, "[%s] cut %llu transitive links\n", date(), (unsigned long long) cnt);
+        cnt = remove_boomerangs_frg_graph(g, 30 * 1000 / KBM_BIN_SIZE);
+        fprintf(KBM_LOGF, "[%s] remove %llu boomerangs\n", date(), (unsigned long long) cnt);
+        cnt = cut_weak_branches_frg_graph(g);
+        fprintf(KBM_LOGF, "[%s] remove %llu weak branches\n", date(), (unsigned long long) cnt);
+        //cnt = cut_low_cov_lnks_graph(g, 1);
+        //fprintf(KBM_LOGF, "[%s] deleted %llu low cov links\n", date(), (unsigned long long)cnt);
+        //if(!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".frg.2.dot");
+        cnt = trim_frgtips_graph(g, frgtip_len);
+        fprintf(KBM_LOGF, "[%s] cut %llu tips\n", date(), (unsigned long long) cnt);
+        //if(!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".frg.3.dot");
+        bub = 0;
+        do {
+            cnt = pop_frg_bubbles_graph(g, bub_step);
+            bub += cnt;
+        } while (cnt);
+        fprintf(KBM_LOGF, "[%s] pop %llu bubbles\n", date(), bub);
+        {
+            if (!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".8.frg.dot.gz");
+            cnt = 0;
+            while (1) {
+                u8i c;
+                if ((c = detach_repetitive_frg_graph(g, 100 * 1000 / KBM_BIN_SIZE, evtlog)) == 0) {
+                    break;
+                }
+                cnt += c;
+            }
+            fprintf(KBM_LOGF, "[%s] detached %llu repeat-associated paths\n", date(), (unsigned long long) cnt);
+            if (!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".9.frg.dot.gz");
+        }
+        cnt = trim_frgtips_graph(g, frgtip_len);
+        fprintf(KBM_LOGF, "[%s] cut %llu tips\n", date(), (unsigned long long) cnt);
+        if (!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".ctg.dot.gz");
+        fprintf(KBM_LOGF, "[%s] building contigs\n", date());
+    } else {
+	    fprintf(KBM_LOGF, "[%s] skipping fragment assembly and generating contigs from FBG unitigs instead\n", date());
 	}
-	cnt = cut_binary_lnks_graph(g, evtlog);
-	fprintf(KBM_LOGF, "[%s] deleted %llu binary links\n", date(), (unsigned long long)cnt);
-	//cnt = reduce_transitive_lnks_graph(g);
-	cnt = myers_transitive_reduction_frg_graph(g, 10000.1f / KBM_BIN_SIZE);
-	fprintf(KBM_LOGF, "[%s] cut %llu transitive links\n", date(), (unsigned long long)cnt);
-	cnt = remove_boomerangs_frg_graph(g, 30 * 1000 / KBM_BIN_SIZE);
-	fprintf(KBM_LOGF, "[%s] remove %llu boomerangs\n", date(), (unsigned long long)cnt);
-	cnt = cut_weak_branches_frg_graph(g);
-	fprintf(KBM_LOGF, "[%s] remove %llu weak branches\n", date(), (unsigned long long)cnt);
-	//cnt = cut_low_cov_lnks_graph(g, 1);
-	//fprintf(KBM_LOGF, "[%s] deleted %llu low cov links\n", date(), (unsigned long long)cnt);
-	//if(!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".frg.2.dot");
-	cnt = trim_frgtips_graph(g, frgtip_len);
-	fprintf(KBM_LOGF, "[%s] cut %llu tips\n", date(), (unsigned long long)cnt);
-	//if(!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".frg.3.dot");
-	bub = 0;
-	do {
-		cnt = pop_frg_bubbles_graph(g, bub_step);
-		bub += cnt;
-	} while(cnt);
-	fprintf(KBM_LOGF, "[%s] pop %llu bubbles\n", date(), bub);
-	{
-		cnt = 0;
-		while(1){
-			u8i c;
-			if((c = detach_repetitive_frg_graph(g, 100 * 1000 / KBM_BIN_SIZE)) == 0){
-				break;
-			}
-			cnt += c;
-		}
-		fprintf(KBM_LOGF, "[%s] detached %llu repeat-associated paths\n", date(), (unsigned long long)cnt);
-	}
-	cnt = trim_frgtips_graph(g, frgtip_len);
-	fprintf(KBM_LOGF, "[%s] cut %llu tips\n", date(), (unsigned long long)cnt);
-	if(!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".ctg.dot.gz");
-	fprintf(KBM_LOGF, "[%s] building contigs\n", date());
+
 	cnt = gen_contigs_graph(g, evtlog);
 	fprintf(KBM_LOGF, "[%s] searched %llu contigs\n", date(), (unsigned long long)cnt);
 	if(1){

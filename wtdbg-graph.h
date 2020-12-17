@@ -1028,6 +1028,8 @@ static inline u8i cut_binary_edges_graph(Graph *g){
 	return ret;
 }
 
+/// Remove those links that are between the same pair of nodes, but different directions.
+/// This also removes mirror links.
 static inline u8i cut_binary_lnks_graph(Graph *g, FILE *info){
 	UUhash *hash;
 	UUhash_t *u;
@@ -1587,6 +1589,8 @@ static inline u8i rescue_weak_tip_lnks2_graph(Graph *g){
 	return ret;
 }
 
+/// Revives links that were closed for weakness if they are the unique outgoing closed weak link of a tip (a frag that has no open outgoing links)
+/// Does the same for backwards links.
 static inline u8i rescue_weak_tip_lnks_graph(Graph *g){
 	pathv *heap;
 	u8v *weaks[2];
@@ -2038,7 +2042,10 @@ static inline u8i myers_transitive_reduction_frg_graph(Graph *g, float fuzz){
 	return ret;
 }
 
-static inline u4i detach_repetitive_frg_core_graph(Graph *g, u8i nid, u4i max_dist, u8i visit, u8v *nds, u8v *heap){
+static inline u4i detach_repetitive_frg_core_graph(Graph *g, u8i nid, u4i max_dist, u8i visit, u8v *nds, u8v *heap, FILE *out){
+    if (out) {
+        fprintf(out, " === Calling detach_repetitive_frg_core_graph for F%llu ===\n", nid);
+    }
 	frg_t *n, *w, *x;
 	edge_ref_t *f;
 	lnk_t *e;
@@ -2077,8 +2084,31 @@ static inline u4i detach_repetitive_frg_core_graph(Graph *g, u8i nid, u4i max_di
 			}
 		}
 	}
+    if (out) {
+        u8i index;
+        fprintf(out, "nds contains: [");
+        for (index = 0; index < nds->size; index++) {
+            if (index > 0) {
+                fprintf(out, ", ");
+            }
+            fprintf(out, "%llu", nds->buffer[index]);
+        }
+        fprintf(out, "]\n");
+        fprintf(out, "heap contains: [");
+        for (index = 0; index < heap->size; index++) {
+            if (index > 0) {
+                fprintf(out, ", ");
+            }
+            fprintf(out, "%llu", heap->buffer[index]);
+        }
+        fprintf(out, "]\n");
+    }
 	if(bcnt[0] == 0 || bcnt[1] == 0) return 0;
 	if(bcnt[0] < 2 && bcnt[1] < 2) return 0;
+	if (out) {
+	    fprintf(out, "Continuing with bcnt: [%u, %u]\n", bcnt[0], bcnt[1]);
+	    fprintf(out, "Extending branches to max_dist in length\n");
+	}
 	// extending branches to max_dist in length
 	while(heap->size){
 		wid = heap->buffer[0];
@@ -2106,8 +2136,29 @@ static inline u4i detach_repetitive_frg_core_graph(Graph *g, u8i nid, u4i max_di
 			}
 		}
 	}
+    if (out) {
+        u8i index;
+        fprintf(out, "nds contains: [");
+        for (index = 0; index < nds->size; index++) {
+            if (index > 0) {
+                fprintf(out, ", ");
+            }
+            fprintf(out, "%llu", nds->buffer[index]);
+        }
+        fprintf(out, "]\n");
+        fprintf(out, "heap contains: [");
+        for (index = 0; index < heap->size; index++) {
+            if (index > 0) {
+                fprintf(out, ", ");
+            }
+            fprintf(out, "%llu", heap->buffer[index]);
+        }
+        fprintf(out, "]\n");
+        fprintf(out, "Finding cross links\n");
+    }
 	// find cross links
 	encap_and_zeros_u8v(heap, bcnt[0] * bcnt[1]); // reuse heap as matrix
+	heap->size = bcnt[0] * bcnt[1];
 	for(i=0;i<nds->size;i++){
 		wid = nds->buffer[i];
 		w = ref_frgv(g->frgs, wid);
@@ -2141,6 +2192,26 @@ static inline u4i detach_repetitive_frg_core_graph(Graph *g, u8i nid, u4i max_di
 			}
 		}
 	}
+    if (out) {
+        u8i index;
+        fprintf(out, "nds contains: [");
+        for (index = 0; index < nds->size; index++) {
+            if (index > 0) {
+                fprintf(out, ", ");
+            }
+            fprintf(out, "%llu", nds->buffer[index]);
+        }
+        fprintf(out, "]\n");
+        fprintf(out, "matrix contains: [");
+        for (index = 0; index < heap->size; index++) {
+            if (index > 0) {
+                fprintf(out, ", ");
+            }
+            fprintf(out, "%llu", heap->buffer[index]);
+        }
+        fprintf(out, "]\n");
+        fprintf(out, "Finding one-left to one-right links\n");
+    }
 	// find one-left to one-right links
 	clear_u8v(nds); // will reuse nds to store bidx
 	for(i=0;i<bcnt[0];i++){
@@ -2165,6 +2236,30 @@ static inline u4i detach_repetitive_frg_core_graph(Graph *g, u8i nid, u4i max_di
 		if(k == bcnt[1]) continue;
 		push_u8v(nds, i * bcnt[1] + k);
 	}
+    if (out) {
+        u8i index;
+        fprintf(out, "bidxs contains: [");
+        for (index = 0; index < nds->size; index++) {
+            if (index > 0) {
+                fprintf(out, ", ");
+            }
+            fprintf(out, "%llu", nds->buffer[index]);
+        }
+        fprintf(out, "]\n");
+        fprintf(out, "matrix contains: [");
+        for (index = 0; index < heap->size; index++) {
+            if (index > 0) {
+                fprintf(out, ", ");
+            }
+            fprintf(out, "%llu", heap->buffer[index]);
+        }
+        fprintf(out, "]\n");
+        if (nds->size > 0) {
+            fprintf(out, "Detaching repeats\n");
+        } else {
+            fprintf(out, "Nothing to detach\n");
+        }
+    }
 	// detach repeats
 	for(i=0;i<nds->size;i++){
 		//bid[0] = nds->buffer[i] / bcnt[0];
@@ -2181,20 +2276,46 @@ static inline u4i detach_repetitive_frg_core_graph(Graph *g, u8i nid, u4i max_di
 				w = ref_frgv(g->frgs, wid);
 				if((w->bt_idx >> 1) == bidx){
 					//cut_lnk_graph(g, e);
+					if (out) {
+					    fprintf(out, "Cutting link F%llu:%c -> F%llu:%c\n", nid, "+-"[f->flg? e->dir2 : e->dir1], wid, "+-"[f->flg? e->dir1 : e->dir2]);
+					}
 					cut_lnk_core_graph(g, e, WT_EDGE_CLOSED_HARD); // in case of loop cut and revive
 				}
 			}
 		}
 	}
+    if (out && nds->size > 0) {
+        u8i index;
+        fprintf(out, "bidxs contains: [");
+        for (index = 0; index < nds->size; index++) {
+            if (index > 0) {
+                fprintf(out, ", ");
+            }
+            fprintf(out, "%llu", nds->buffer[index]);
+        }
+        fprintf(out, "]\n");
+        fprintf(out, "matrix contains: [");
+        for (index = 0; index < heap->size; index++) {
+            if (index > 0) {
+                fprintf(out, ", ");
+            }
+            fprintf(out, "%llu", heap->buffer[index]);
+        }
+        fprintf(out, "]\n");
+        fprintf(out, "Reviving links\n");
+    }
 	for(i=0;i<nds->size;i++){
 		eid = heap->buffer[nds->buffer[i]];
 		e = ref_lnkv(g->lnks, eid);
+        if (out) {
+            fprintf(out, "Reviving link F%llu:%c -> F%llu:%c\n", e->frg1, "+-"[e->dir1], e->frg2, "+-"[e->dir2]);
+        }
 		revive_lnk_graph(g, e);
 	}
 	return nds->size;
 }
 
-static inline u4i detach_repetitive_frg_graph(Graph *g, u4i max_dist){
+static inline u4i detach_repetitive_frg_graph(Graph *g, u4i max_dist, FILE *out){
 	u8v *nds;
 	u8v *heap;
 	frg_t *n;
@@ -2213,7 +2334,7 @@ static inline u4i detach_repetitive_frg_graph(Graph *g, u4i max_dist){
 		n = ref_frgv(g->frgs, nid);
 		if(n->lnks[0].cnt == 0 || n->lnks[1].cnt == 0) continue;
 		if(n->lnks[0].cnt < 2 && n->lnks[1].cnt < 2) continue;
-		ret += detach_repetitive_frg_core_graph(g, nid, max_dist, ++visit, nds, heap);
+		ret += detach_repetitive_frg_core_graph(g, nid, max_dist, ++visit, nds, heap, out);
 	}
 	free_u8v(nds);
 	free_u8v(heap);
@@ -3061,6 +3182,7 @@ static inline u8i resolve_yarns_graph(Graph *g, u4i max_step){
 	return ret;
 }
 
+/// A boomerang is a source-frag that is also a branch, or the symmetric backwards variant.
 static inline u8i remove_boomerangs_frg_graph(Graph *g, u4i max_frg_len){
 	frg_t *frg;
 	u8i i, ret;
@@ -3078,6 +3200,7 @@ static inline u8i remove_boomerangs_frg_graph(Graph *g, u4i max_frg_len){
 	return ret;
 }
 
+/// Remove weak links that are splits or joins.
 static inline u8i cut_weak_branches_frg_graph(Graph *g){
 	frg_t *frg1, *frg2;
 	lnk_t *lnk;
@@ -3849,8 +3972,10 @@ static inline u4i unitigs2frgs_graph(Graph *g, int ncpu){
 	return ret;
 }
 
-static inline int scan_rd_lnk_core(Graph *g, u4i rid, lnk_t *lnk, u8v *regids){
+/// Create a link between the first and last frag on a read.
+static inline int scan_rd_lnk_core(Graph *g, u4i rid /* id of a read */, lnk_t *lnk /* output parameter */, u8v *regids /* output parameter */){
 	read_t *rd;
+	// A reg could be a read-association of a node.
 	reg_t  *r, *rl, *rr;
 	node_t *n, *nl, *nr;
 	frg_t  *fl, *fr;
@@ -3859,23 +3984,35 @@ static inline int scan_rd_lnk_core(Graph *g, u4i rid, lnk_t *lnk, u8v *regids){
 	u4i i, tmp;
 	rd = ref_readv(g->reads, rid);
 	idx = rd->regs.idx;
+
+	// Read all ids of regs related to the read into regids.
 	clear_u8v(regids);
 	while(idx){
 		push_u8v(regids, idx);
 		idx = ref_regv(g->regs, idx)->read_link;
 	}
+	// If there is only one reg in the read, then the read cannot link any unitigs.
 	if(regids->size < 2) return 0;
+
+	// Track last reg and node.
 	rl = NULL; nl = NULL;
+	// Search for the first pair of consecutive nodes (ignoring nodes with rep_idx==MAX_REP_IDX) that differ in rep_idx.
 	for(i=0;i<regids->size;i++){
+	    // Get the i-th reg of the read.
 		r = ref_regv(g->regs, regids->buffer[i]);
+		// Get the node of the i-th reg of the read.
 		n = ref_nodev(g->nodes, r->node);
 		if(n->rep_idx == MAX_REP_IDX) continue;
 		if(rl && n->rep_idx != nl->rep_idx) break;
 		rl = r;
 		nl = n;
 	}
+	// If there was no such pair with different rep_idx found, abort. (why?)
 	if(i == regids->size) return 0;
+
+	// Track last (reverse) reg and node.
 	rr = NULL; nr = NULL;
+	// Search for the last pair of consecutive nodes (ignoring nodes with rep_idx==MAX_REP_IDX) that differ in rep_idx.
 	for(i=regids->size;i>0;i--){
 		r = ref_regv(g->regs, regids->buffer[i - 1]);
 		n = ref_nodev(g->nodes, r->node);
@@ -3884,12 +4021,17 @@ static inline int scan_rd_lnk_core(Graph *g, u4i rid, lnk_t *lnk, u8v *regids){
 		rr = r;
 		nr = n;
 	}
+	// Here, rl and nl are the end of the longest prefix of regs on the read that have the same rep_idx (or rep_idx==MAX_REP_IDX).
+	// And rr and nr are the start of the longest such suffix.
+
+	// Generate a link from fl to fr, which are the frags corresponding to the prefix and suffix described above.
 	fl = ref_frgv(g->frgs, nl->rep_idx);
 	tl = ref_tracev(g->traces, fl->toff + nl->bt_visit);
 	fr = ref_frgv(g->frgs, nr->rep_idx);
 	tr = ref_tracev(g->traces, fr->toff + nr->bt_visit);
 	lnk->frg1 = nl->rep_idx;
 	lnk->frg2 = nr->rep_idx;
+	// Do not create self-links.
 	if(lnk->frg1 == lnk->frg2) return 0;
 	lnk->dir1 = rl->dir ^ nl->rep_dir;
 	lnk->dir2 = rr->dir ^ nr->rep_dir;
@@ -3901,7 +4043,10 @@ static inline int scan_rd_lnk_core(Graph *g, u4i rid, lnk_t *lnk, u8v *regids){
 	lnk->off = rr->beg - rl->end;
 	lnk->off -= lnk->dir1? tl->off : ((b4i)fl->len) - (tl->off + rl->end - rl->beg);
 	lnk->off -= lnk->dir2? ((b4i)fr->len) - (tr->off + rr->end - rr->beg) : tr->off;
+	// Do not create links of negative length.
+	// This might do something to prevent "backwards" links, but I do not understand it.
 	if(lnk->off + (int)g->reglen < 0) return 0;
+	// Have a links frags always in ascending order of ids.
 	if(lnk->frg1 > lnk->frg2){
 		swap_tmp(lnk->frg1, lnk->frg2, tmp);
 		swap_tmp(lnk->dir1, lnk->dir2, tmp);
@@ -3912,7 +4057,10 @@ static inline int scan_rd_lnk_core(Graph *g, u4i rid, lnk_t *lnk, u8v *regids){
 	return 1;
 }
 
-static inline int scan_nd_lnk_core(Graph *g, u8i nid, lnk_t *lnk){
+/// Unused.
+/// Generates links based on nodes not part of any unitig, if they have a unique incoming unitig and a unique outgoing unitig.
+/// This seems useless though, as such nodes would be part of a unitig if I understand correctly. Probably that is why it was commented out.
+static inline int scan_nd_lnk_core(Graph *g, u8i nid /* id of a node */, lnk_t *lnk /* output parameter */){
 	node_t *n, *w;
 	edge_ref_t *f;
 	edge_t *e;
@@ -3922,20 +4070,26 @@ static inline int scan_nd_lnk_core(Graph *g, u8i nid, lnk_t *lnk){
 	u4i fids[2], dirs[2], dir, covs[2], tidx[2], k;
 	int offs[2];
 	n = ref_nodev(g->nodes, nid);
+	// Look only at nodes that are not part of any unitig.
 	if(n->rep_idx != MAX_REP_IDX) return 0;
+	// Look at both directions of the node.
 	for(k=0;k<2;k++){
-		fids[k] = 0;
-		dirs[k] = 0;
-		covs[k] = 0;
-		tidx[k] = 0;
-		offs[k] = 0;
+		fids[k] = 0; // Frag id
+		dirs[k] = 0; // Direction
+		covs[k] = 0; // Coverage (number of supporting edges leading to a different node on the same frag) (???)
+		tidx[k] = 0; // Trace index
+		offs[k] = 0; // Offset of one of the supporting edges
+		// Iterate over the outgoing edges of a node in the current direction.
+		// Find the unique frag the node is connected to or nothing otherwise.
 		idx = n->edges[k].idx;
 		while(idx){
 			f = ref_edgerefv(g->erefs, idx);
 			idx = f->next;
 			e = ref_edgev(g->edges, f->idx);
+			// Get the successor node (head) of the current edge.
 			wid = f->flg? e->node1 : e->node2;
 			w = ref_nodev(g->nodes, wid);
+			// Ignore successor if it is not part of any unitig.
 			if(w->rep_idx == MAX_REP_IDX) continue;
 			dir = f->flg? !e->dir1 : e->dir2;
 			dir = w->rep_dir ^ dir;
@@ -3952,6 +4106,7 @@ static inline int scan_nd_lnk_core(Graph *g, u8i nid, lnk_t *lnk){
 				break;
 			}
 		}
+		// If the node is not uniquely connected in one direction with enough edges, generate no link.
 		if(fids[k] == 0) return 0;
 		if(fids[k] == MAX_U4) return 0;
 		if(covs[k] < g->min_edge_cov) return 0;
@@ -4063,6 +4218,7 @@ static inline u4i gen_lnks_graph(Graph *g, int ncpu, FILE *log){
 	thread_end_close(mlnk);
 	psort_array(lnks->buffer, lnks->size, lnk_t, ncpu, num_cmpgtx(a.key, b.key, a.off, b.off));
 	if(log){
+        fprintf(log, "Initial links\n");
 		for(i=0;i<lnks->size;i++){
 			l = ref_lnkv(lnks, i);
 			fprintf(log, "F%d[%c:%d] -> F%d[%c:%d] = %d, cov=%d\n", l->frg1, "+-"[l->dir1], l->tidx1, l->frg2, "+-"[l->dir2], l->tidx2, l->off, l->cov);
@@ -4155,6 +4311,15 @@ static inline u4i gen_lnks_graph(Graph *g, int ncpu, FILE *log){
 		lst = idx;
 		F1 = F2;
 	}
+
+    if(log){
+        fprintf(log, "Links after generation method\n");
+        for(i=0;i<g->lnks->size;i++){
+            l = ref_lnkv(g->lnks, i);
+            fprintf(log, "F%d[%c:%d] -> F%d[%c:%d] = %d, cov=%d\n", l->frg1, "+-"[l->dir1], l->tidx1, l->frg2, "+-"[l->dir2], l->tidx2, l->off, l->cov);
+        }
+    }
+
 	return g->lnks->size - 1;
 }
 
