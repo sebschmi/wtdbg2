@@ -2308,7 +2308,7 @@ static inline u4i detach_repetitive_frg_core_graph(Graph *g, u8i nid, u4i max_di
 		eid = heap->buffer[nds->buffer[i]];
 		e = ref_lnkv(g->lnks, eid);
         if (out) {
-            fprintf(out, "Reviving link F%llu:%c -> F%llu:%c\n", e->frg1, "+-"[e->dir1], e->frg2, "+-"[e->dir2]);
+            fprintf(out, "Reviving link F%d:%c -> F%d:%c\n", e->frg1, "+-"[e->dir1], e->frg2, "+-"[e->dir2]);
         }
 		revive_lnk_graph(g, e);
 	}

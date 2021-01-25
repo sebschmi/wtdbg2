@@ -671,7 +671,7 @@ int main(int argc, char **argv){
 		}
 	}
 	switch(preset){
-		case 1:
+		case 1: // rs/rsII
 			if(!(opt_flags & (1 << 1))) par->ksize = 0;
 			if(!(opt_flags & (1 << 0))) par->psize = 21;
 			if(!(opt_flags & (1 << 2))) par->kmer_mod = 4 * KBM_N_HASH;
@@ -679,7 +679,7 @@ int main(int argc, char **argv){
 			if(!(opt_flags & (1 << 5))) par->skip_contained = 1;
 			if(!(opt_flags & (1 << 4))) tidy_reads = 5000;
 			break;
-		case 2:
+		case 2: // ont/sq <1G
 			if(!(opt_flags & (1 << 1))) par->ksize = 15;
 			if(!(opt_flags & (1 << 0))) par->psize = 0;
 			if(!(opt_flags & (1 << 2))) par->kmer_mod = 2 * KBM_N_HASH;
@@ -687,7 +687,7 @@ int main(int argc, char **argv){
 			if(!(opt_flags & (1 << 5))) par->skip_contained = 0;
 			if(!(opt_flags & (1 << 4))) tidy_reads = 5000;
 			break;
-		case 3:
+		case 3: // ont/sq > 1G
 			if(!(opt_flags & (1 << 1))) par->ksize = 0;
 			if(!(opt_flags & (1 << 0))) par->psize = 19;
 			if(!(opt_flags & (1 << 2))) par->kmer_mod = 2 * KBM_N_HASH;
@@ -695,7 +695,7 @@ int main(int argc, char **argv){
 			if(!(opt_flags & (1 << 5))) par->skip_contained = 0;
 			if(!(opt_flags & (1 << 4))) tidy_reads = 5000;
 			break;
-		case 4:
+		case 4: // ccs
 			if(!(opt_flags & (1 << 1))) par->ksize = 0;
 			if(!(opt_flags & (1 << 0))) par->psize = 21;
 			if(!(opt_flags & (1 << 2))) par->kmer_mod = 4 * KBM_N_HASH;

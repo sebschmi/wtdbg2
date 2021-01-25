@@ -1660,7 +1660,24 @@ static inline u8i proc_alignments_core(Graph *g, int ncpu, int raw, rdregv *regs
 				}
 			}
 			{
+			    u4i throw_match_away_min_mat = 0;
+                u4i throw_match_away_min_sim = 0;
+                u4i throw_match_away_max_gap = 0;
+                u4i throw_match_away_min_aln = 0;
+                u4i throw_match_away_aln_special = 0;
+                u4i throw_match_away_total = 0;
+                u4i throw_match_away_total_reasons = 0;
+			    
 				thread_beg_close(mdbg);
+
+				throw_match_away_min_mat += mdbg->aux->throw_match_away_min_mat;
+                throw_match_away_min_sim += mdbg->aux->throw_match_away_min_sim;
+                throw_match_away_max_gap += mdbg->aux->throw_match_away_max_gap;
+                throw_match_away_min_aln += mdbg->aux->throw_match_away_min_aln;
+                throw_match_away_aln_special += mdbg->aux->throw_match_away_aln_special;
+                throw_match_away_total += mdbg->aux->throw_match_away_total;
+                throw_match_away_total_reasons += mdbg->aux->throw_match_away_total_reasons;
+
 				free(mdbg->aux->par);
 				free_kbmaux(mdbg->aux);
 				//if(g->corr_mode){
@@ -1672,6 +1689,14 @@ static inline u8i proc_alignments_core(Graph *g, int ncpu, int raw, rdregv *regs
 					free_kbmaux(mdbg->raux);
 				}
 				thread_end_close(mdbg);
+
+                fprintf(KBM_LOGF, "\nOMNISTAT Total throw_match_away_min_mat: %d\n", throw_match_away_min_mat);
+                fprintf(KBM_LOGF, "OMNISTAT Total throw_match_away_min_sim: %d\n", throw_match_away_min_sim);
+                fprintf(KBM_LOGF, "OMNISTAT Total throw_match_away_max_gap: %d\n", throw_match_away_max_gap);
+                fprintf(KBM_LOGF, "OMNISTAT Total throw_match_away_min_aln: %d\n", throw_match_away_min_aln);
+                fprintf(KBM_LOGF, "OMNISTAT Total throw_match_away_aln_special: %d\n", throw_match_away_aln_special);
+                fprintf(KBM_LOGF, "OMNISTAT Total throw_match_away_total: %d\n", throw_match_away_total);
+                fprintf(KBM_LOGF, "OMNISTAT Total throw_match_away_total_reasons: %d\n", throw_match_away_total_reasons);
 			}
 		}
 		if(!KBM_LOG) fprintf(KBM_LOGF, "\r%u reads|total hits %llu\n", qe - qb, nhit);

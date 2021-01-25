@@ -264,6 +264,13 @@ typedef struct {
 	BitsVec  *cigars;
 	BitVec   *solids;
 	String   *str;
+	u4i      throw_match_away_min_mat;
+    u4i      throw_match_away_min_sim;
+    u4i      throw_match_away_max_gap;
+    u4i      throw_match_away_min_aln;
+    u4i      throw_match_away_aln_special;
+    u4i      throw_match_away_total;
+    u4i      throw_match_away_total_reasons;
 } KBMAux;
 
 static inline KBMPar* init_kbmpar(){
@@ -1357,6 +1364,13 @@ static inline KBMAux* init_kbmaux(KBM *kbm){
 	aux->cigars = init_bitsvec(1024, 3);
 	aux->solids = NULL;
 	aux->str = init_string(1024);
+    aux->throw_match_away_min_mat = 0;
+    aux->throw_match_away_min_sim = 0;
+    aux->throw_match_away_max_gap = 0;
+    aux->throw_match_away_min_aln = 0;
+    aux->throw_match_away_aln_special = 0;
+    aux->throw_match_away_total = 0;
+    aux->throw_match_away_total_reasons = 0;
 	return aux;
 }
 
@@ -1833,14 +1847,38 @@ static inline int _backtrace_map_kbm(KBMAux *aux, int dir, kbm_path_t *p){
 		push_bitsvec(aux->cigars, lst);
 	}
 	cglen = aux->cigars->size - cgoff;
-	if(mat < (u4i)aux->par->min_mat || mat < UInt(hit->aln * KBM_BSIZE * aux->par->min_sim)
-		|| gap > (u4i)(hit->aln * aux->par->max_gap)
-		|| hit->aln < (int)aux->par->min_aln
-		|| num_diff(hit->qe - hit->qb, hit->te - hit->tb) > (int)num_max(aux->par->aln_var * hit->aln, 1.0)){
+
+	// Throw alignment away if it is worse than these conditions
+	int throw_away = 0;
+	if (mat < (u4i)aux->par->min_mat) {
+	    throw_away += 1;
+	    aux->throw_match_away_min_mat += 1;
+	}
+    if (mat < UInt(hit->aln * KBM_BSIZE * aux->par->min_sim)) {
+        throw_away += 1;
+        aux->throw_match_away_min_sim += 1;
+    }
+    if (gap > (u4i)(hit->aln * aux->par->max_gap)) {
+        throw_away += 1;
+        aux->throw_match_away_max_gap += 1;
+    }
+    if (hit->aln < (int)aux->par->min_aln) {
+        throw_away += 1;
+        aux->throw_match_away_min_aln += 1;
+    }
+    if (num_diff(hit->qe - hit->qb, hit->te - hit->tb) > (int)num_max(aux->par->aln_var * hit->aln, 1.0)) {
+        throw_away += 1;
+        aux->throw_match_away_aln_special += 1;
+    }
+
+	if (throw_away) {
 		aux->hits->size --;
 		aux->cigars->size = cgoff;
+		aux->throw_match_away_total += 1;
+		aux->throw_match_away_total_reasons += throw_away;
 		return 0;
 	}
+
 	if(aux->par->self_aln && aux->solids){
 		// Obsolete
 		x = hit->qe;
