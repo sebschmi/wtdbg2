@@ -1228,12 +1228,12 @@ int main(int argc, char **argv){
         }
         cnt = trim_frgtips_graph(g, frgtip_len);
         fprintf(KBM_LOGF, "[%s] cut %llu tips\n", date(), (unsigned long long) cnt);
-        if (!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".ctg.dot.gz");
-        fprintf(KBM_LOGF, "[%s] building contigs\n", date());
     } else {
 	    fprintf(KBM_LOGF, "[%s] skipping fragment assembly and generating contigs from FBG unitigs instead\n", date());
 	}
 
+    if (!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".ctg.dot.gz");
+    fprintf(KBM_LOGF, "[%s] building contigs\n", date());
 	cnt = gen_contigs_graph(g, evtlog);
 	fprintf(KBM_LOGF, "[%s] searched %llu contigs\n", date(), (unsigned long long)cnt);
 	if(1){
