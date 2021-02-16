@@ -3444,8 +3444,12 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file) {
 
         if (path->size > 2) {
             nutg += 1;
-            inner_path = init_tracev(count_tracev(path) - 2);
+            /*inner_path = init_tracev(count_tracev(path) - 2);
             for (i=1; i<path->size - 1; i++) {
+                push_tracev(inner_path, get_tracev(path, i));
+            }*/
+            inner_path = init_tracev(count_tracev(path));
+            for (i=0; i<path->size; i++) {
                 push_tracev(inner_path, get_tracev(path, i));
             }
 
@@ -3462,6 +3466,7 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file) {
     //exit(0);
     fprintf(KBM_LOGF, "[%s] ", date()); num_n50(lens, KBM_LOGF); fprintf(KBM_LOGF, "\n");
     free_filereader(fr);
+    free_tracev(path);
     free_u4v(lens);
     return nutg;
 }
