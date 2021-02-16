@@ -3672,13 +3672,46 @@ static inline edge_ref_t* find_unique_link_between(Graph *g, path_t *p1, path_t 
     return result;
 }
 
-static inline u8i load_contigs(Graph *g, char *contigs_file, FILE *out) {
-    pathv *path;
+static inline void contig2seqlets(Graph *g, pathv *path, FILE *out) {
+    path_t *t;
     seqletv *qs;
     seqlet_t *q;
+    u8i i, off;
+
+    //fprintf(KBM_LOGF, "Doing path2seqlets_graph.\n");
+    qs = path2seqlets_graph(g, path);
+    //fprintf(KBM_LOGF, "Checking min contig node count.\n");
+    if(qs->size + 1 < (u4i)g->min_ctg_nds){
+        free_seqletv(qs);
+        return;
+    }
+    //fprintf(KBM_LOGF, "Computing offsets and lens.\n");
+    q = ref_seqletv(qs, qs->size - 1);
+    if(((int)q->off + (int)q->len) * KBM_BIN_SIZE < (int)g->min_ctg_len){
+        free_seqletv(qs);
+        return;
+    }
+    off = 0;
+    for(i=0;i<qs->size;i++){
+        q = ref_seqletv(qs, i);
+        q->off = off;
+        off += q->len - g->reglen;
+    }
+    if(out){
+        for(i=0;i<path->size;i++){
+            t = ref_pathv(path, i);
+            fprintf(out, "ctg%d\tF%d\t%c\t%d\n", (int)g->ctgs->size, t->frg, "+-*@"[t->dir], t->off * KBM_BIN_SIZE);
+            //fprintf(KBM_LOGF, "ctg%d\tF%d\t%c\t%d\n", (int)g->ctgs->size, t->frg, "+-*@"[t->dir], t->off * KBM_BIN_SIZE);
+        }
+    }
+    push_vplist(g->ctgs, qs);
+}
+
+static inline u8i load_contigs(Graph *g, char *contigs_file, FILE *out) {
+    pathv *path;
     path_t *t, *prev_t;
     frg_t *n, *prev_n;
-    u8i nid, nctg, i, off;
+    u8i nid, nctg, i;
     for (i = 0; i < g->ctgs->size; i++) { free_tracev(g->ctgs->buffer[i]); }
     clear_vplist(g->ctgs);
     nctg = 0;
@@ -3691,6 +3724,7 @@ static inline u8i load_contigs(Graph *g, char *contigs_file, FILE *out) {
     while (readline_filereader(fr)) {
         //fprintf(KBM_LOGF, "Reading fragment contig %4d: %s\n", line, get_line_str(fr));
 
+        nctg ++;
         int column_count = split_line_filereader(fr, ' ');
         clear_pathv(path);
         prev_n = NULL;
@@ -3706,6 +3740,7 @@ static inline u8i load_contigs(Graph *g, char *contigs_file, FILE *out) {
                 exit(1);
             }
 
+            g->frgs->buffer[nid].bt_visit = 1;
             n = ref_frgv(g->frgs, nid);
             if(n->closed) {
                 fprintf(KBM_LOGF, "Safe walk contains closed frag (contig %d (zero-based); position %d; frag index: %llu)\n", line, column / 2, nid);
@@ -3752,35 +3787,29 @@ static inline u8i load_contigs(Graph *g, char *contigs_file, FILE *out) {
         ////// FRAGMENT OMNITIG INJECTION POINT //////
         //////////////////////////////////////////////
 
-        //fprintf(KBM_LOGF, "Doing path2seqlets_graph.\n");
-        qs = path2seqlets_graph(g, path);
-        //fprintf(KBM_LOGF, "Checking min contig node count.\n");
-        if(qs->size + 1 < (u4i)g->min_ctg_nds){
-            free_seqletv(qs);
-            continue;
-        }
-        //fprintf(KBM_LOGF, "Computing offsets and lens.\n");
-        q = ref_seqletv(qs, qs->size - 1);
-        if(((int)q->off + (int)q->len) * KBM_BIN_SIZE < (int)g->min_ctg_len){
-            free_seqletv(qs);
-            continue;
-        }
-        off = 0;
-        for(i=0;i<qs->size;i++){
-            q = ref_seqletv(qs, i);
-            q->off = off;
-            off += q->len - g->reglen;
-        }
-        if(out){
-            for(i=0;i<path->size;i++){
-                t = ref_pathv(path, i);
-                fprintf(out, "ctg%d\tF%d\t%c\t%d\n", (int)g->ctgs->size, t->frg, "+-*@"[t->dir], t->off * KBM_BIN_SIZE);
-                //fprintf(KBM_LOGF, "ctg%d\tF%d\t%c\t%d\n", (int)g->ctgs->size, t->frg, "+-*@"[t->dir], t->off * KBM_BIN_SIZE);
-            }
-        }
-        push_vplist(g->ctgs, qs);
+        contig2seqlets(g, path, out);
     }
     free_filereader(fr);
+
+    // In case there are unused open frags, add them to the contigs as well.
+    for (nid = 0; nid < g->frgs->size; nid++) {
+        n = ref_frgv(g->frgs, nid);
+        if (n->closed || n->bt_visit) {
+            continue;
+        }
+
+        nctg ++;
+        clear_pathv(path);
+
+        t = next_ref_pathv(path);
+        t->frg = nid;
+        t->lnks[0] = EDGE_REF_NULL;
+        t->lnks[1] = EDGE_REF_NULL;
+        t->dir = 0;
+
+        contig2seqlets(g, path, out);
+    }
+
     free_pathv(path);
     g->major_nctg = g->ctgs->size;
     return nctg;
