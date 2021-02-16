@@ -164,9 +164,9 @@ typedef struct {
     /// A node in the graph, part of the path.
 	u8i node;
 	//node_t *n;
-	/// edge[0] is the edge to reach the ??? node in the path, and edge[1] reaches the ??? node.
+	/// edge[0] is the edge to reach the next node in the path, and edge[1] reaches the previous node.
 	edge_ref_t edges[2];
-	/// dir: 1 if path traverses (forward/backward) variant of this node, 0 otherwise.
+	/// dir: 1 if path traverses the backward variant of this node, 0 for forward.
 	/// cov: ???
 	u4i dir:2, cov:30;
 	/// Can be computed with `cal_offset_traces_graph`, but is done anyways right after the injection point.

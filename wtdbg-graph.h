@@ -3363,7 +3363,7 @@ static inline edge_ref_t* find_unique_edge_between(Graph *g, trace_t *t1, trace_
     return result;
 }
 
-static inline u8i load_unitigs(Graph *g, char *unitigs_file){
+static inline u8i load_unitigs(Graph *g, char *unitigs_file) {
     tracev *path, *inner_path;
     u4v *lens;
     trace_t *t, *prev_t;
@@ -3502,23 +3502,7 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file){
 
             prev_n = n;
         }
-        //fprintf(KBM_LOGF, "Finished reading file, terminating test case\n");
-        //exit(0);
-        //continue;
-        /*n = ref_nodev(g->nodes, nid);
-        if(n->closed) continue;
-        if(n->bt_visit) continue;
-        path = init_tracev(4);
-        nutg ++;
-        t = next_ref_tracev(path);
-        t->node = nid;
-        t->edges[0] = EDGE_REF_NULL;
-        t->edges[1] = EDGE_REF_NULL;
-        t->dir = 0;
-        true_linear_unique_trace_graph(g, path, 0xFFFFFFFFFFFFFFFFLLU, nutg, NULL);
-        reverse_tracev(path);
-        for(i=0;i<path->size;i++) path->buffer[i].dir = !path->buffer[i].dir;
-        true_linear_unique_trace_graph(g, path, 0xFFFFFFFFFFFFFFFFLLU, nutg, NULL);*/
+
         /////////////////////////////////////
         ////// OMNITIG INJECTION POINT //////
         /////////////////////////////////////
@@ -3561,27 +3545,49 @@ static inline seqletv* path2seqlets_graph(Graph *g, pathv *path){
 	cal_offset_paths_graph(g, path, 0, path->size);
 	p1   = NULL;
 	frg1 = NULL;
+	//fprintf(KBM_LOGF, "path2seqlets_graph: Iterating path for the first time.\n");
 	for(i=0;i<path->size;i++){
 		p2 = ref_pathv(path, i);
 		frg2 = ref_frgv(g->frgs, p2->frg);
+        //fprintf(KBM_LOGF, "path2seqlets_graph: cal_offset_traces_graph\n");
 		cal_offset_traces_graph(g, g->traces, frg2->toff, frg2->toff + frg2->tcnt, 0);
 		p2->tx = 0;
 		p2->ty = frg2->tcnt - 1;
 		if(p1){
+            //fprintf(KBM_LOGF, "path2seqlets_graph: p1 != 0\n");
+            //fprintf(KBM_LOGF, "path2seqlets_graph: p1: %p, p1->dir: %u\n", (void*) p1, p1->dir);
+            if (p1->dir >= 2) {
+                fprintf(KBM_LOGF, "direction out of range: %u >= 2\n", (uint32_t) p1->dir);
+                exit(1);
+            }
+
 			f = p1->lnks + p1->dir;
+
+            //fprintf(KBM_LOGF, "link indices: 0: %lu, 1: %lu\n", (uint64_t) p1->lnks[0].idx, (uint64_t) p1->lnks[1].idx);
+			if (f->idx >= g->lnks->size) {
+			    fprintf(KBM_LOGF, "link index out of range: %lu >= %lu\n", (uint64_t) f->idx, g->lnks->size);
+			    exit(1);
+			}
+
 			l = ref_lnkv(g->lnks, f->idx);
 			if(f->flg){
+                //fprintf(KBM_LOGF, "path2seqlets_graph: f->flg != 0\n");
 				if(p1->dir){
+                    //fprintf(KBM_LOGF, "path2seqlets_graph: p1->dir != 0\n");
 					p1->tx = l->tidx2;
 				} else {
+                    //fprintf(KBM_LOGF, "path2seqlets_graph: p1->dir == 0\n");
 					p1->ty = frg1->tcnt - 1 - l->tidx2;
 				}
 				if(p2->dir){
+                    //fprintf(KBM_LOGF, "path2seqlets_graph: p2->dir != 0\n");
 					p2->ty = frg2->tcnt - 1 - l->tidx1;
 				} else {
+                    //fprintf(KBM_LOGF, "path2seqlets_graph: p2->dir == 0\n");
 					p2->tx = l->tidx1;
 				}
 			} else {
+                //fprintf(KBM_LOGF, "path2seqlets_graph: f->flg == 0\n");
 				if(p1->dir){
 					p1->tx = l->tidx1;
 				} else {
@@ -3600,13 +3606,16 @@ static inline seqletv* path2seqlets_graph(Graph *g, pathv *path){
 		}
 		p1 = p2;
 		frg1 = frg2;
+        //fprintf(KBM_LOGF, "path2seqlets_graph: looping in first loop.\n");
 	}
 	p1   = NULL;
 	frg1 = NULL;
+    //fprintf(KBM_LOGF, "path2seqlets_graph: Iterating path for the second time.\n");
 	for(i=0;i<path->size;i++){
 		p2 = ref_pathv(path, i);
 		frg2 = ref_frgv(g->frgs, p2->frg);
 		if(p1){
+            //fprintf(KBM_LOGF, "path2seqlets_graph: p1 != 0\n");
 			t1 = ref_tracev(g->traces, frg1->toff + (p1->dir? p1->tx : p1->ty));
 			t2 = ref_tracev(g->traces, frg2->toff + (p2->dir? p2->ty : p2->tx));
 			off = p1->off + (p1->dir? (int)(frg1->len - (t1->off + g->reglen)) : t1->off);
@@ -3616,6 +3625,7 @@ static inline seqletv* path2seqlets_graph(Graph *g, pathv *path){
 			push_seqletv(qs, (seqlet_t){t1->node, p1->dir ^ t1->dir, t2->node, p2->dir ^ t2->dir, off, len});
 		}
 		if(p2->dir){
+		    //fprintf(KBM_LOGF, "path2seqlets_graph: p2->dir != 0\n");
 			//for(j=p2->tx+1;j<=p2->ty;j++){
 				//t1 = ref_tracev(g->traces, frg2->toff + frg2->tcnt - 1 - j);
 				//t2 = ref_tracev(g->traces, frg2->toff + frg2->tcnt - 0 - j);
@@ -3627,6 +3637,7 @@ static inline seqletv* path2seqlets_graph(Graph *g, pathv *path){
 				push_seqletv(qs, (seqlet_t){t2->node, !t2->dir, t1->node, !t1->dir, off, len});
 			}
 		} else {
+            //fprintf(KBM_LOGF, "path2seqlets_graph: p2->dir == 0\n");
 			for(j=p2->tx+1;j<=p2->ty;j++){
 				t1 = ref_tracev(g->traces, frg2->toff + j - 1);
 				t2 = ref_tracev(g->traces, frg2->toff + j);
@@ -3641,17 +3652,211 @@ static inline seqletv* path2seqlets_graph(Graph *g, pathv *path){
 	return qs;
 }
 
-static inline u8i gen_contigs_graph(Graph *g, FILE *out){
-	pathv *path;
-	seqletv *qs;
-	seqlet_t *q;
-	path_t *t;
-	frg_t *n;
-	u8i nid, nctg, i, off;
-	for(i=0;i<g->ctgs->size;i++) free_tracev(g->ctgs->buffer[i]);
-	clear_vplist(g->ctgs);
-	nctg = 0;
-	for(nid=0;nid<g->frgs->size;nid++) g->frgs->buffer[nid].bt_visit = 0;
+static inline edge_ref_t* find_unique_link_between(Graph *g, path_t *p1, path_t *p2) {
+    edge_ref_t *result = NULL;
+    frg_t *f1 = &g->frgs->buffer[p1->frg];
+
+    if (f1->lnks[p1->dir].cnt != 0) {
+        u8i link_index = f1->lnks[p1->dir].idx;
+        while (link_index) {
+            edge_ref_t *eref = ref_edgerefv(g->lrefs, link_index);
+
+            if (eref->idx >= g->lnks->size) {
+                fprintf(KBM_LOGF, "link index out of range: %lu >= %lu\n", (uint64_t) eref->idx, g->lnks->size);
+                exit(1);
+            }
+
+            lnk_t *e = &g->lnks->buffer[eref->idx];
+
+            /*if (f->flg) {
+                fprintf(KBM_LOGF, "rev: ");
+            } else {
+                fprintf(KBM_LOGF, "for: ");
+            }
+            kbm_logf_edge_t(e);*/
+            link_index = eref->next;
+
+            if (e->frg1 == e->frg2) {
+                fprintf(KBM_LOGF, "Found self loop\n");
+                exit(1);
+            }
+
+            if (e->flag) {
+                fprintf(KBM_LOGF, "Found link with set flag\n");
+                exit(1);
+            }
+
+            u8i target_frg;
+            int target_dir;
+
+            if (eref->flg) {
+                if (e->dir2 == p1->dir) {
+                    fprintf(KBM_LOGF, "Found link not originating from frag\n");
+                    exit(1);
+                }
+
+                target_frg = e->frg1;
+                target_dir = !e->dir1;
+            } else {
+                if (e->dir1 != p1->dir) {
+                    fprintf(KBM_LOGF, "Found link not originating from frag\n");
+                    exit(1);
+                }
+
+                target_frg = e->frg2;
+                target_dir = e->dir2;
+            }
+
+            if (target_frg == p2->frg && target_dir == p2->dir) {
+                if (e->closed) {
+                    fprintf(KBM_LOGF, "Found closed link\n");
+                    continue;
+                }
+
+                if (result) {
+                    fprintf(KBM_LOGF, "Found two links\n");
+                    return NULL;
+                } else {
+                    result = eref;
+                }
+            } else {
+                //fprintf(KBM_LOGF, "Target node/dir %llu/%d does not match %llu/%d\n", target_node, target_dir, t2->node, t2->dir);
+            }
+        }
+    }
+
+    if (!result) {
+        fprintf(KBM_LOGF, "Found no link\n");
+    }
+
+    return result;
+}
+
+static inline u8i load_contigs(Graph *g, char *contigs_file, FILE *out) {
+    pathv *path;
+    seqletv *qs;
+    seqlet_t *q;
+    path_t *t, *prev_t;
+    frg_t *n, *prev_n;
+    u8i nid, nctg, i, off;
+    for (i = 0; i < g->ctgs->size; i++) { free_tracev(g->ctgs->buffer[i]); }
+    clear_vplist(g->ctgs);
+    nctg = 0;
+    for(nid=0;nid<g->frgs->size;nid++) {g->frgs->buffer[nid].bt_visit = 0;}
+    path = init_pathv(4);
+
+    FileReader *fr = init_filereader();
+    push_filereader(fr, contigs_file);
+    int line = 0;
+    while (readline_filereader(fr)) {
+        //fprintf(KBM_LOGF, "Reading fragment contig %4d: %s\n", line, get_line_str(fr));
+
+        int column_count = split_line_filereader(fr, ' ');
+        clear_pathv(path);
+        prev_n = NULL;
+        int column;
+
+        for (column = 0; column + 1 < column_count; column += 2) {
+            //fprintf(KBM_LOGF, "Reading column %d\n", column / 2);
+            nid = atoi(get_col_str(fr, column) + 1);
+            int dir = *get_col_str(fr, column + 1) == '+' ? 0 : 1;
+
+            if (nid >= g->frgs->size) {
+                fprintf(KBM_LOGF, "Frag index out of range: %llu (contig %d (zero-based); position %d)\n", nid, line, column / 2);
+                exit(1);
+            }
+
+            n = ref_frgv(g->frgs, nid);
+            if(n->closed) {
+                fprintf(KBM_LOGF, "Safe walk contains closed frag (contig %d (zero-based); position %d; frag index: %llu)\n", line, column / 2, nid);
+                exit(1);
+            }
+
+            t = next_ref_pathv(path);
+            t->frg = nid;
+            t->lnks[0] = EDGE_REF_NULL;
+            t->lnks[1] = EDGE_REF_NULL;
+            t->dir = dir;
+            if (column > 0) {
+                prev_t = ref_pathv(path, column / 2 - 1);
+            } else {
+                prev_t = NULL;
+            }
+
+            if (prev_t != NULL && prev_n != NULL) {
+                //fprintf(KBM_LOGF, "Searching for edge %llu%s -> %llu%s\n", prev_t->node, prev_t->dir ? "-" : "+", t->node, t->dir ? "-" : "+");
+                //kbm_logf_node_edges(g, prev_n);
+
+                //fprintf(KBM_LOGF, "Searching unique edge\n");
+                edge_ref_t *link = find_unique_link_between(g, prev_t, t);
+
+                if (!link) {
+                    fprintf(KBM_LOGF, "Found no unique link (contig %d (zero-based); position %d)\n", line, column / 2);
+                    exit(1);
+                }
+
+                if (link->idx >= g->lnks->size) {
+                    fprintf(KBM_LOGF, "link index out of range: %lu >= %lu\n", (uint64_t) link->idx, g->lnks->size);
+                    exit(1);
+                }
+
+                prev_t->lnks[prev_t->dir] = *link;
+                t->lnks[!t->dir] = *link;
+                t->lnks[!t->dir].flg = !t->lnks[!t->dir].flg;
+            }
+
+            prev_n = n;
+        }
+
+        //////////////////////////////////////////////
+        ////// FRAGMENT OMNITIG INJECTION POINT //////
+        //////////////////////////////////////////////
+
+        //fprintf(KBM_LOGF, "Doing path2seqlets_graph.\n");
+        qs = path2seqlets_graph(g, path);
+        //fprintf(KBM_LOGF, "Checking min contig node count.\n");
+        if(qs->size + 1 < (u4i)g->min_ctg_nds){
+            free_seqletv(qs);
+            continue;
+        }
+        //fprintf(KBM_LOGF, "Computing offsets and lens.\n");
+        q = ref_seqletv(qs, qs->size - 1);
+        if(((int)q->off + (int)q->len) * KBM_BIN_SIZE < (int)g->min_ctg_len){
+            free_seqletv(qs);
+            continue;
+        }
+        off = 0;
+        for(i=0;i<qs->size;i++){
+            q = ref_seqletv(qs, i);
+            q->off = off;
+            off += q->len - g->reglen;
+        }
+        if(out){
+            for(i=0;i<path->size;i++){
+                t = ref_pathv(path, i);
+                fprintf(out, "ctg%d\tF%d\t%c\t%d\n", (int)g->ctgs->size, t->frg, "+-*@"[t->dir], t->off * KBM_BIN_SIZE);
+                //fprintf(KBM_LOGF, "ctg%d\tF%d\t%c\t%d\n", (int)g->ctgs->size, t->frg, "+-*@"[t->dir], t->off * KBM_BIN_SIZE);
+            }
+        }
+        push_vplist(g->ctgs, qs);
+    }
+    free_filereader(fr);
+    free_pathv(path);
+    g->major_nctg = g->ctgs->size;
+    return nctg;
+}
+
+static inline u8i gen_contigs_graph(Graph *g, FILE *out) {
+    pathv *path;
+    seqletv *qs;
+    seqlet_t *q;
+    path_t *t;
+    frg_t *n;
+    u8i nid, nctg, i, off;
+    for (i = 0; i < g->ctgs->size; i++) { free_tracev(g->ctgs->buffer[i]); }
+    clear_vplist(g->ctgs);
+    nctg = 0;
+    for(nid=0;nid<g->frgs->size;nid++) {g->frgs->buffer[nid].bt_visit = 0;}
 	path = init_pathv(4);
 	for(nid=0;nid<g->frgs->size;nid++){
 		n = ref_frgv(g->frgs, nid);

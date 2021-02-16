@@ -118,6 +118,7 @@ static struct option prog_opts[] = {
     {"inject-unitigs",                   1, 0, 9901},
     {"compute-graph-only",               0, 0, 9902},
     {"skip-fragment-assembly",           0, 0, 9903},
+    {"inject-fragment-unitigs",          1, 0, 9904},
 	{0, 0, 0, 0}
 };
 
@@ -358,6 +359,8 @@ int usage(int level){
     "   Abort the program after outputting the graph, do not compute contigs\n"
     " --skip-fragment-assembly\n"
     "   Do not join unitigs using the fragment graph, just output them directly. This must not be used together with ctg-min-nodes, as in this case contigs are just one node in the fragment graph.\n"
+    " --inject-fragment-unitigs <string>\n"
+    "   Instead of computing unitigs on the fragment graph in this application, take the safe walks given in a file\n"
 	"\n"
 		);
 	}
@@ -397,7 +400,7 @@ int main(int argc, char **argv){
 	int min_ctg_len, min_ctg_nds, max_trace_end, max_overhang, overwrite, node_order, fast_mode, corr_min, corr_max, corr_bsize, corr_bstep, mem_stingy, num_index;
 	double genome_size, genome_depx;
 	float node_drop, node_mrg, ttr_e_cov, fval, cut_low_edges, corr_mode, corr_cov;
-	char* inject_unitigs;
+	char *inject_unitigs, *inject_fragment_unitigs;
 	int compute_graph_only, skip_fragment_assembly;
 	pbs = init_cplist(4);
 	ngs = init_cplist(4);
@@ -632,6 +635,7 @@ int main(int argc, char **argv){
 			case 9901: inject_unitigs = optarg; break;
 			case 9902: compute_graph_only = 1; break;
 			case 9903: skip_fragment_assembly = 1; min_ctg_nds = 0; break;
+            case 9904: inject_fragment_unitigs = optarg; break;
 			default: return usage(-1);
 		}
 	}
@@ -1233,20 +1237,28 @@ int main(int argc, char **argv){
 	}
 
     if (!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".ctg.dot.gz");
-    fprintf(KBM_LOGF, "[%s] building contigs\n", date());
-	cnt = gen_contigs_graph(g, evtlog);
-	fprintf(KBM_LOGF, "[%s] searched %llu contigs\n", date(), (unsigned long long)cnt);
-	if(1){
-		cnt = gen_complex_contigs_graph(g);
-		u8i sum;
-		seqletv *qs;
-		sum = 0;
-		for(i=g->major_nctg;i<g->ctgs->size;i++){
-			qs = (seqletv*)get_vplist(g->ctgs, i);
-			sum += qs->buffer[qs->size - 1].off + qs->buffer[qs->size - 1].len;
-		}
-		fprintf(KBM_LOGF, "[%s] added %llu unsolved repetitive contigs, %llu bp\n", date(), (unsigned long long)cnt, sum);
-	}
+
+    if (inject_fragment_unitigs == NULL) {
+        fprintf(KBM_LOGF, "[%s] building contigs\n", date());
+        cnt = gen_contigs_graph(g, evtlog);
+        fprintf(KBM_LOGF, "[%s] searched %llu contigs\n", date(), (unsigned long long)cnt);
+
+        if(1){
+            cnt = gen_complex_contigs_graph(g);
+            u8i sum;
+            seqletv *qs;
+            sum = 0;
+            for(i=g->major_nctg;i<g->ctgs->size;i++){
+                qs = (seqletv*)get_vplist(g->ctgs, i);
+                sum += qs->buffer[qs->size - 1].off + qs->buffer[qs->size - 1].len;
+            }
+            fprintf(KBM_LOGF, "[%s] added %llu unsolved repetitive contigs, %llu bp\n", date(), (unsigned long long)cnt, sum);
+        }
+    } else {
+        fprintf(KBM_LOGF, "[%s] loading fragment unitigs from '%s'\n", date(), inject_fragment_unitigs);
+        load_contigs(g, inject_fragment_unitigs, evtlog);
+    }
+
 	n50_stat_contigs_graph(g);
 	//cnt = generic_print_graph(g, print_isolated_nodes_dot_graph, prefix, ".4.dot");
 	//fprintf(KBM_LOGF, "[%s] %llu nodes not in contigs\n", date(), (unsigned long long)cnt);
