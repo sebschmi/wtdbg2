@@ -506,6 +506,7 @@ int main(int argc, char **argv){
 	rpar->aln_var = 0.25;
 	opt_flags = 0;
     inject_unitigs = NULL;
+    inject_fragment_unitigs = NULL;
     compute_graph_only = 0;
     skip_fragment_assembly = 0;
 	while((c = getopt_long(argc, argv, "ht:i:fo:x:E:k:p:K:S:l:m:s:RvqVe:L:Ag:X:", prog_opts, &opt_idx)) != -1){
