@@ -3427,77 +3427,12 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file) {
                     exit(1);
                 }
 
-                prev_t->edges[0] = *edge;
+                /*prev_t->edges[0] = *edge;
                 t->edges[1] = *edge;
-                t->edges[1].flg = !t->edges[1].flg;
-
-                /*
-                static inline edge_ref_t* first_living_edge_graph(Graph *g, node_t *n, int dir, int *info){
-                    edge_ref_t *f, *ret;
-                    u8i idx;
-                    ret = NULL;
-                    if(info){
-                        *info = WT_TRACE_MSG_ZERO;
-                        if(n->edges[dir].cnt == 0) return NULL;
-                        idx = n->edges[dir].idx;
-                        while(idx){
-                            f = ref_edgerefv(g->erefs, idx);
-                            idx = f->next;
-                            if(g->edges->buffer[f->idx].closed) continue;
-                            if(ret){ *info = WT_TRACE_MSG_MORE; return NULL; }
-                            else { *info = WT_TRACE_MSG_ONE; ret = f; }
-                        }
-                    } else {
-                        if(n->edges[dir].cnt == 0) return NULL;
-                        idx = n->edges[dir].idx;
-                        while(idx){
-                            f = ref_edgerefv(g->erefs, idx);
-                            idx = f->next;
-                            if(g->edges->buffer[f->idx].closed) continue;
-                            if(ret){ return NULL; }
-                            else { ret = f; }
-                        }
-                    }
-                    return ret;
-                }
-
-                static inline u8i true_linear_unique_trace_graph(Graph *g, tracev *path, u8i max_step, u8i visit, int *msg){
-                    trace_t *t;
-                    node_t *n;
-                    edge_t *e;
-                    edge_ref_t *f;
-                    u8i step;
-                    int dir, info;
-                    if(path->size == 0){
-                        if(msg) *msg = WT_TRACE_MSG_ZERO;
-                        return 0;
-                    }
-                    step = 0;
-                    if(msg) *msg = WT_TRACE_MSG_ONE;
-                    while(step < max_step){
-                        t = ref_tracev(path, path->size - 1);
-                        f = first_living_edge_graph(g, ref_nodev(g->nodes, t->node), !t->dir, &info);
-                        if(info == WT_TRACE_MSG_MORE){ if(path->size > 1) path->size --; if(msg) *msg = -1 - info; break; }
-                        n = ref_nodev(g->nodes, t->node);
-                        n->bt_visit = visit;
-                        f = first_living_edge_graph(g, ref_nodev(g->nodes, t->node),  t->dir, &info);
-                        if(info == WT_TRACE_MSG_ZERO){ if(msg) *msg = info; break; }
-                        else if(info == WT_TRACE_MSG_MORE){ if(path->size > 1) path->size --; if(msg) *msg = info; break; }
-                        e = g->edges->buffer + f->idx;
-                        n = ref_nodev(g->nodes, f->flg? e->node1 : e->node2);
-                        if(n->bt_visit == visit){ if(msg) *msg = WT_TRACE_MSG_VISITED; break; }
-                        dir = f->flg? !e->dir1 : e->dir2;
-                        t->edges[t->dir] = *f;
-                        t = next_ref_tracev(path);
-                        t->node = n - g->nodes->buffer;
-                        t->dir = dir;
-                        t->edges[!t->dir] = (edge_ref_t){f->idx, !f->flg, 0};
-                        t->edges[t->dir] = EDGE_REF_NULL;
-                        step ++;
-                    }
-                    return step;
-                }
-                 */
+                t->edges[1].flg = !t->edges[1].flg;*/
+                prev_t->edges[prev_t->dir] = *edge;
+                t->edges[!t->dir] = *edge;
+                t->edges[!t->dir].flg = !t->edges[!t->dir].flg;
             }
 
             prev_n = n;
