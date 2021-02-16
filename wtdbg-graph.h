@@ -3442,7 +3442,7 @@ static inline u8i load_unitigs(Graph *g, char *unitigs_file) {
         ////// OMNITIG INJECTION POINT //////
         /////////////////////////////////////
 
-        if (path->size > 2) {
+        if (path->size > 0) {
             nutg += 1;
             /*inner_path = init_tracev(count_tracev(path) - 2);
             for (i=1; i<path->size - 1; i++) {
